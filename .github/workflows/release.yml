@@ -79,5 +79,5 @@ jobs:
             gh release upload "$tag" --clobber "${files[@]}"
             gh release edit "$tag" --title "$tag" --notes-file .release-notes.md
           else
-            gh release create "$tag" --title "$tag" --notes-file .release-notes.md --draft "${files[@]}"
+            gh release create "$tag" --title "$tag" --notes-file .release-notes.md "${files[@]}"
           fi

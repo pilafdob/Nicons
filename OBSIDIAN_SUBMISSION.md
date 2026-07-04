@@ -28,6 +28,8 @@ The public GitHub release for the submitted version must include:
 
 Do not rely on `vendor/phosphor-icons/` being installed as a release asset; bundled Phosphor SVGs are embedded into `main.js` during build.
 
+The release tag must match the `version` in `manifest.json`, or be prefixed with `v`.
+
 ## Before selecting Submit
 
 - Read and agree to the developer policies shown in the community directory.
