@@ -753,6 +753,7 @@ export default class IconicPlugin extends Plugin {
 	 */
 	async onExternalSettingsChange(): Promise<any> {
 		await this.loadSettings();
+		await this.loadIconPack();
 		this.refreshManagers();
 		this.refreshBody();
 	}
