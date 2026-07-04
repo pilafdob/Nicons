@@ -1,6 +1,6 @@
 {
   "name": "nicons",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "Customize icons with bundled Phosphor icon assets.",
   "main": "main.js",
   "scripts": {

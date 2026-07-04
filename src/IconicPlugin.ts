@@ -39,6 +39,34 @@ const IMAGE_EXTENSIONS = ['bmp', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'av
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', '3gp', 'flac', 'ogg', 'oga', 'opus'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
 const ARCHIVE_EXTENSIONS = ['zip', '7z', 'rar', 'tar', 'gz', 'bz2', 'xz'];
+const FILE_EXTENSION_ICON_ALIASES: Record<string, string> = {
+	htm: 'file-html',
+	jpeg: 'file-jpg',
+	markdown: 'file-md',
+	text: 'file-txt',
+	cjs: 'file-js',
+	mjs: 'file-js',
+	cts: 'file-ts',
+	mts: 'file-ts',
+	cs: 'file-c-sharp',
+	cc: 'file-cpp',
+	cxx: 'file-cpp',
+	h: 'file-c',
+	hpp: 'file-cpp',
+	docx: 'file-doc',
+	docm: 'file-doc',
+	dot: 'file-doc',
+	dotx: 'file-doc',
+	pages: 'file-doc',
+	rtf: 'file-doc',
+	xlsx: 'file-xls',
+	xlsm: 'file-xls',
+	numbers: 'file-xls',
+	pptx: 'file-ppt',
+	pptm: 'file-ppt',
+	key: 'file-ppt',
+	keynote: 'file-ppt',
+};
 const PACK_ICON_FALLBACKS: Record<string, string> = {
 	'file': 'lucide-file',
 	'file-archive': 'lucide-file-archive',
@@ -611,10 +639,19 @@ export default class IconicPlugin extends Plugin {
 		if (!this.settings.showFileTypeIcons) return fallback;
 
 		const normalizedExtension = extension.toLowerCase();
+		if (!normalizedExtension) return this.getDefaultFilePackIcon(fallback);
+
+		const exactPackSlug = `file-${normalizedExtension}`;
+		if (this.hasPackIcon(exactPackSlug)) return this.toPackIconId(exactPackSlug);
+
+		const aliasedPackSlug = FILE_EXTENSION_ICON_ALIASES[normalizedExtension];
+		if (aliasedPackSlug && this.hasPackIcon(aliasedPackSlug)) {
+			return this.toPackIconId(aliasedPackSlug);
+		}
+
 		let packSlug: string | null = null;
 		switch (normalizedExtension) {
 			case 'md':
-			case 'markdown':
 			case 'base':
 				packSlug = 'file-md';
 				break;
@@ -624,78 +661,47 @@ export default class IconicPlugin extends Plugin {
 				packSlug = 'file-pdf';
 				break;
 			case 'doc':
-			case 'docx':
-			case 'docm':
-			case 'dot':
-			case 'dotx':
-			case 'pages':
-			case 'rtf':
 				packSlug = 'file-doc';
 				break;
 			case 'xls':
-			case 'xlsx':
-			case 'xlsm':
-			case 'numbers':
 				packSlug = 'file-xls';
 				break;
 			case 'ppt':
-			case 'pptx':
-			case 'pptm':
-			case 'key':
-			case 'keynote':
 				packSlug = 'file-ppt';
-				break;
-			case 'csv':
-				packSlug = 'file-csv';
-				break;
-			case 'txt':
-			case 'text':
-				packSlug = 'file-txt';
-				break;
-			case 'html':
-			case 'htm':
-				packSlug = 'file-html';
-				break;
-			case 'js':
-			case 'jsx':
-				packSlug = 'file-js';
-				break;
-			case 'ts':
-			case 'tsx':
-				packSlug = 'file-ts';
-				break;
-			case 'py':
-				packSlug = 'file-py';
-				break;
-			case 'rs':
-				packSlug = 'file-rs';
-				break;
-			case 'sql':
-				packSlug = 'file-sql';
 				break;
 			case 'json':
 			case 'yaml':
 			case 'yml':
 			case 'toml':
 			case 'xml':
-			case 'css':
 				packSlug = 'file-code';
 				break;
 			default:
-				if (normalizedExtension === 'png') packSlug = 'file-png';
-				else if (normalizedExtension === 'jpg' || normalizedExtension === 'jpeg') packSlug = 'file-jpg';
-				else if (normalizedExtension === 'svg') packSlug = 'file-svg';
-				else if (IMAGE_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-image';
+				if (IMAGE_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-image';
 				else if (AUDIO_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-audio';
 				else if (VIDEO_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-video';
 				else if (ARCHIVE_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-zip';
 		}
 
-		return packSlug ? this.getPackIconOrFallback(packSlug) : fallback;
+		return packSlug && this.hasPackIcon(packSlug)
+			? this.toPackIconId(packSlug)
+			: this.getDefaultFilePackIcon(fallback);
+	}
+
+	private hasPackIcon(slug: string): boolean {
+		return PACK_ICONS.has(this.toPackIconId(slug));
+	}
+
+	private toPackIconId(slug: string): string {
+		return `nicons:${slug}`;
+	}
+
+	private getDefaultFilePackIcon(fallback: string | null): string | null {
+		return this.hasPackIcon('file') ? this.toPackIconId('file') : fallback;
 	}
 
 	private getPackIconOrFallback(slug: string): string {
-		const packIcon = `nicons:${slug}`;
+		const packIcon = this.toPackIconId(slug);
 		return PACK_ICONS.has(packIcon) ? packIcon : PACK_ICON_FALLBACKS[slug] ?? 'lucide-file';
 	}
 

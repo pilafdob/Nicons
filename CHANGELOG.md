@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+- Improved file-extension icon matching for icon packs with exact file-type icons.
+- Added aliases for common Office, iWork, source-code, and document extensions.
+- Kept unknown files on the pack's default file icon when available.
+
 ## 1.0.2
 
 - Removed redundant wording from the manifest description.
