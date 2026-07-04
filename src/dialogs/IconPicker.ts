@@ -1,40 +1,13 @@
-import { ButtonComponent, ColorComponent, ExtraButtonComponent, Hotkey, Menu, Modal, Platform, Setting, TextComponent, displayTooltip, prepareFuzzySearch, setTooltip } from 'obsidian';
+import { ButtonComponent, ColorComponent, ExtraButtonComponent, Hotkey, Menu, Modal, Platform, Setting, TextComponent, displayTooltip, setTooltip } from 'obsidian';
 import IconicPlugin, { Category, Item, Icon, ICONS, EMOJIS, STRINGS } from 'src/IconicPlugin.js';
 import ColorUtils, { COLORS } from 'src/ColorUtils.js';
 import { RuleItem } from 'src/managers/RuleManager.js';
 import IconManager from 'src/managers/IconManager.js';
 import RuleEditor from 'src/dialogs/RuleEditor.js';
 import { PACK_ICONS } from 'src/IconPackService.js';
+import { SEARCH_ALIASES, normalizeSearchTerm } from 'src/IconSearchAliases.js';
 
 const COLOR_KEYS = [...COLORS.keys()];
-const SEARCH_SYNONYMS: Record<string, string[]> = {
-	math: ['function', 'functions', 'calculator', 'numbers', 'number', 'plus', 'minus', 'divide', 'equals', 'pi', 'sigma'],
-	functions: ['function', 'math', 'calculator'],
-	function: ['functions', 'math', 'calculator'],
-	number: ['numbers', 'math', 'hash', 'digit'],
-	numbers: ['number', 'math', 'hash', 'digit'],
-	calculate: ['calculator', 'math', 'divide', 'plus', 'minus', 'equals'],
-	calculator: ['calculate', 'math', 'numbers'],
-	write: ['pencil', 'pen', 'edit', 'note'],
-	edit: ['pencil', 'pen', 'write'],
-	delete: ['trash', 'remove', 'x'],
-	remove: ['trash', 'delete', 'minus', 'x'],
-	settings: ['gear', 'sliders', 'controls'],
-	folder: ['directory'],
-	directory: ['folder'],
-	file: ['document', 'page'],
-	document: ['file', 'page'],
-	image: ['picture', 'photo'],
-	picture: ['image', 'photo'],
-	photo: ['image', 'picture'],
-	link: ['url', 'chain'],
-	url: ['link', 'globe'],
-	time: ['clock', 'calendar'],
-	date: ['calendar', 'clock'],
-	idea: ['lightbulb', 'brain'],
-	search: ['magnifying', 'find'],
-	find: ['search', 'magnifying'],
-};
 
 /**
  * Callback for setting icon & color of a single item.
@@ -669,8 +642,7 @@ export default class IconPicker extends Modal {
 	 */
 	private updateSearchResults(): void {
 		const query = this.searchField.getValue();
-		const queries = this.expandSearchQuery(query);
-		const fuzzySearches = queries.map(term => prepareFuzzySearch(term));
+		const searchQuery = this.createSearchQuery(query);
 		const matches: [score: number, iconEntry: [string, string]][] = [];
 		const iconEntries = [
 			...(this.plugin.settings.dialogState.iconMode ? ICONS : []),
@@ -680,22 +652,18 @@ export default class IconPicker extends Modal {
 		// Search all icon names
 		if (query) for (const [icon, iconName] of iconEntries) {
 			if (query === icon) { // Recognize emoji input
-				matches.push([0, [icon, iconName]]);
+				matches.push([Number.MAX_SAFE_INTEGER, [icon, iconName]]);
 			} else {
-				const searchText = this.getIconSearchText(icon, iconName);
-				let bestScore: number | null = null;
-				for (const fuzzySearch of fuzzySearches) {
-					const fuzzyMatch = fuzzySearch(searchText);
-					if (fuzzyMatch && (bestScore === null || fuzzyMatch.score > bestScore)) {
-						bestScore = fuzzyMatch.score;
-					}
-				}
-				if (bestScore !== null) matches.push([bestScore, [icon, iconName]]);
+				const score = this.scoreIconSearch(icon, iconName, searchQuery);
+				if (score > 0) matches.push([score, [icon, iconName]]);
 			}
 		}
 
 		// Sort matches by score
-		matches.sort(([scoreA,], [scoreB,]) => scoreA > scoreB ? -1 : +1);
+		matches.sort(([scoreA, iconEntryA], [scoreB, iconEntryB]) => {
+			if (scoreA !== scoreB) return scoreB - scoreA;
+			return iconEntryA[1].localeCompare(iconEntryB[1]);
+		});
 
 		// Copy into an unscored array
 		this.searchResults.length = 0;
@@ -749,23 +717,100 @@ export default class IconPicker extends Modal {
 		}
 	}
 
-	private expandSearchQuery(query: string): string[] {
-		const normalizedQuery = query.trim().toLowerCase();
-		if (!normalizedQuery) return [''];
+	private createSearchQuery(query: string): {
+		raw: string;
+		tokens: string[];
+		aliases: string[];
+		terms: string[];
+	} {
+		const normalizedQuery = normalizeSearchTerm(query);
+		if (!normalizedQuery) return { raw: '', tokens: [], aliases: [], terms: [] };
 
-		const terms = new Set([normalizedQuery]);
-		for (const token of normalizedQuery.split(/\s+/)) {
-			for (const synonym of SEARCH_SYNONYMS[token] ?? []) {
-				terms.add(synonym);
+		const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+		const aliases = new Set<string>();
+		const lookupTerms = new Set([normalizedQuery, ...tokens]);
+		for (const token of [...lookupTerms]) {
+			for (const variant of this.getSearchTermVariants(token)) {
+				for (const alias of SEARCH_ALIASES[variant] ?? []) {
+					aliases.add(normalizeSearchTerm(alias));
+				}
 			}
 		}
-		return [...terms];
+		const terms = [...new Set([normalizedQuery, ...tokens, ...aliases])];
+		return { raw: normalizedQuery, tokens, aliases: [...aliases], terms };
+	}
+
+	private getSearchTermVariants(term: string): string[] {
+		const variants = new Set([term]);
+		if (term.endsWith('ies') && term.length > 3) variants.add(`${term.slice(0, -3)}y`);
+		if (term.endsWith('s') && term.length > 3) variants.add(term.slice(0, -1));
+		if (!term.endsWith('s')) variants.add(`${term}s`);
+		return [...variants];
+	}
+
+	private scoreIconSearch(
+		icon: string,
+		iconName: string,
+		query: ReturnType<IconPicker['createSearchQuery']>,
+	): number {
+		if (!query.raw) return 0;
+
+		const packIcon = PACK_ICONS.get(icon);
+		const slug = normalizeSearchTerm(packIcon?.slug ?? icon.toLowerCase().replace(/^lucide-/, ''));
+		const name = normalizeSearchTerm(iconName);
+		const searchable = normalizeSearchTerm(this.getIconSearchText(icon, iconName));
+		const searchableTokens = new Set(searchable.split(/\s+/).filter(Boolean));
+		let score = 0;
+
+		if (slug === query.raw || name === query.raw) score += 10000;
+		if (slug.startsWith(query.raw) || name.startsWith(query.raw)) score += 7000;
+		if (searchableTokens.has(query.raw) || searchable.includes(query.raw)) score += 6000;
+		if (slug.includes(query.raw) || name.includes(query.raw)) score += 2500;
+
+		for (const token of query.tokens) {
+			if (slug === token || name === token) score += 3000;
+			else if (searchableTokens.has(token)) score += 2200;
+			else if (slug.startsWith(token) || name.startsWith(token)) score += 1500;
+			else if (slug.includes(token) || name.includes(token)) score += 350;
+		}
+
+		for (const [index, alias] of query.aliases.entries()) {
+			const priorityBoost = Math.max(0, query.aliases.length - index) * 100;
+			const aliasTokens = alias.split(/\s+/).filter(Boolean);
+			if (slug === alias || name === alias) score += 12000 + priorityBoost;
+			else if (slug.includes(alias) || name.includes(alias) || searchable.includes(alias)) score += 9500 + priorityBoost;
+			if (aliasTokens.length > 1) continue;
+			for (const aliasToken of aliasTokens) {
+				if (searchableTokens.has(aliasToken)) score += 5000;
+				else if (slug.startsWith(aliasToken) || name.startsWith(aliasToken)) score += 3500;
+				else if (slug.includes(aliasToken) || name.includes(aliasToken)) score += 1200;
+			}
+		}
+
+		if (score === 0) {
+			for (const term of query.terms) {
+				if (term.length >= 4 && this.isLooseSubsequence(term, searchable)) {
+					score = Math.max(score, Math.max(100, term.length * 20));
+				}
+			}
+		}
+
+		return score;
 	}
 
 	private getIconSearchText(icon: string, iconName: string): string {
 		const packIcon = PACK_ICONS.get(icon);
 		if (packIcon) return packIcon.searchText;
 		return `${icon} ${iconName}`.toLowerCase().replaceAll('-', ' ');
+	}
+
+	private isLooseSubsequence(needle: string, haystack: string): boolean {
+		let index = 0;
+		for (const char of haystack) {
+			if (char === needle[index]) index++;
+			if (index === needle.length) return true;
+		}
+		return false;
 	}
 
 	/**

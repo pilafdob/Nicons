@@ -181,6 +181,20 @@ export default class IconicSettingTab extends PluginSettingTab {
 			)
 		);
 
+		// SETTING: Show file type icons
+		groupSidebarsAndTabs.addSetting(setting => setting
+			.setName(STRINGS.settings.showFileTypeIcons.name)
+			.setDesc(STRINGS.settings.showFileTypeIcons.desc)
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showFileTypeIcons)
+				.onChange(value => {
+					this.plugin.settings.showFileTypeIcons = value;
+					this.plugin.saveSettings();
+					this.plugin.refreshManagers('file', 'folder');
+				})
+			)
+		);
+
 		// SETTING: Show all folder icons
 		groupSidebarsAndTabs.addSetting(setting => setting
 			.setName(STRINGS.settings.showAllFolderIcons.name)

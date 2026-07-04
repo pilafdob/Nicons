@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { BUNDLED_PHOSPHOR } from 'src/BundledPhosphor.js';
+import { getAliasTermsForIcon } from 'src/IconSearchAliases.js';
 
 export const PACK_ICON_PREFIX = 'nicons:';
 export const PACK_ICONS = new Map<string, PackIcon>();
@@ -190,6 +191,7 @@ function makeSearchText(id: string, slug: string, name: string): string {
 		slug,
 		name,
 		slug.replaceAll('-', ' '),
+		...getAliasTermsForIcon(slug),
 	].join(' ').toLowerCase();
 }
 

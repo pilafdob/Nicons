@@ -146,9 +146,7 @@ export default class FileIconManager extends IconManager {
 
 			if (file.items) {
 				// Toggle default icon based on expand/collapse state
-				if (rule.iconDefault) rule.iconDefault = iconEl.hasClass('is-collapsed')
-					? 'lucide-folder-closed'
-					: 'lucide-folder-open';
+				if (rule.iconDefault) rule.iconDefault = this.plugin.getFolderDefaultIcon(!itemEl.hasClass('is-collapsed'));
 			}
 
 			let folderIconEl = selfEl.find(':scope > .iconic-sidekick:not(.tree-item-icon)');
@@ -185,7 +183,7 @@ export default class FileIconManager extends IconManager {
 					if (ghostEl) {
 						const spanEl = ghostEl.find('span');
 						const ghostIcon = (file.category === 'folder' && rule.icon === null)
-							? 'lucide-folder-open'
+							? this.plugin.getFolderDefaultIcon(true)
 							: rule.icon || rule.iconDefault;
 						this.refreshIcon({ icon: ghostIcon, color: rule.color }, ghostEl);
 						ghostEl.appendChild(spanEl);

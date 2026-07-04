@@ -1,4 +1,4 @@
-import { Command, Notice, Platform, Plugin, TAbstractFile, TFile, TFolder, View, WorkspaceFloating, WorkspaceLeaf, WorkspaceRoot, getIconIds, getLanguage, normalizePath } from 'obsidian';
+import { Command, Notice, Platform, Plugin, TAbstractFile, TFile, TFolder, View, WorkspaceFloating, WorkspaceLeaf, WorkspaceRoot, getLanguage, normalizePath } from 'obsidian';
 import IconicSettingTab from 'src/IconicSettingTab.js';
 import EMOJIS from 'src/Emojis.js';
 import STRINGS from 'src/Strings.js';
@@ -37,6 +37,37 @@ export const PLUGIN_TAB_TYPES = [
 
 const IMAGE_EXTENSIONS = ['bmp', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif'];
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', '3gp', 'flac', 'ogg', 'oga', 'opus'];
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
+const ARCHIVE_EXTENSIONS = ['zip', '7z', 'rar', 'tar', 'gz', 'bz2', 'xz'];
+const PACK_ICON_FALLBACKS: Record<string, string> = {
+	'file': 'lucide-file',
+	'file-archive': 'lucide-file-archive',
+	'file-audio': 'lucide-file-audio',
+	'file-code': 'lucide-file-code',
+	'file-csv': 'lucide-file-spreadsheet',
+	'file-doc': 'lucide-file-text',
+	'file-html': 'lucide-file-code',
+	'file-image': 'lucide-image',
+	'file-jpg': 'lucide-image',
+	'file-js': 'lucide-file-code',
+	'file-json': 'lucide-file-code',
+	'file-md': 'lucide-file-text',
+	'file-pdf': 'lucide-file-text',
+	'file-png': 'lucide-image',
+	'file-ppt': 'lucide-presentation',
+	'file-py': 'lucide-file-code',
+	'file-rs': 'lucide-file-code',
+	'file-sql': 'lucide-database',
+	'file-svg': 'lucide-image',
+	'file-text': 'lucide-file-text',
+	'file-ts': 'lucide-file-code',
+	'file-txt': 'lucide-file-text',
+	'file-video': 'lucide-file-video',
+	'file-xls': 'lucide-sheet',
+	'file-zip': 'lucide-file-archive',
+	'folder': 'lucide-folder',
+	'folder-open': 'lucide-folder-open',
+};
 
 const HOUR = 1000 * 60 * 60; // 1 hour in millis
 const MINUTE = 1000 * 60; // 1 minute in millis
@@ -88,6 +119,7 @@ interface IconicSettings {
 	iconPackSize: number;
 	biggerIcons: string;
 	clickableIcons: string;
+	showFileTypeIcons: boolean;
 	showAllFileIcons: boolean,
 	showAllFolderIcons: boolean,
 	minimalFolderIcons: boolean;
@@ -155,6 +187,7 @@ const DEFAULT_SETTINGS: IconicSettings = {
 	iconPackSize: 100,
 	biggerIcons: 'mobile',
 	clickableIcons: 'desktop',
+	showFileTypeIcons: true,
 	showAllFileIcons: false,
 	showAllFolderIcons: false,
 	minimalFolderIcons: true,
@@ -221,124 +254,6 @@ export default class IconicPlugin extends Plugin {
 		this.addSettingTab(new IconicSettingTab(this));
 
 		this.app.workspace.onLayoutReady(() => {
-			// Generate icon names from available icon IDs
-			getIconIds().map(id => {
-				switch (id) {
-					default: {
-						const tidyName = id.replace(/^lucide-/, '').replaceAll('-', ' ');
-						const capitalizedName = (tidyName[0]?.toUpperCase() + tidyName.slice(1));
-						return [id, capitalizedName];
-					}
-					case 'lucide-app-window-mac': return [id, 'App window Mac'];
-					case 'lucide-archive-x': return [id, 'Archive X'];
-					case 'lucide-arrow-down-az': return [id, 'Arrow down AZ'];
-					case 'lucide-arrow-down-za': return [id, 'Arrow down ZA'];
-					case 'lucide-arrow-up-az': return [id, 'Arrow up AZ'];
-					case 'lucide-arrow-up-za': return [id, 'Arrow up ZA'];
-					case 'lucide-axis-3d': return [id, 'Axis 3D'];
-					case 'lucide-badge-indian-rupee': return [id, 'Badge Indian rupee'];
-					case 'lucide-badge-japanese-yen': return [id, 'Badge Japanese yen'];
-					case 'lucide-badge-russian-ruble': return [id, 'Badge Russian ruble'];
-					case 'lucide-badge-swiss-franc': return [id, 'Badge Swiss franc'];
-					case 'lucide-badge-x': return [id, 'Badge X'];
-					case 'lucide-book-a': return [id, 'Book A'];
-					case 'lucide-book-x': return [id, 'Book X'];
-					case 'lucide-calendar-x': return [id, 'Calendar X'];
-					case 'lucide-calendar-x2': return [id, 'Calendar X 2'];
-					case 'lucide-cctv': return [id, 'CCTV'];
-					case 'lucide-chart-gantt': return [id, 'Chart Gantt'];
-					case 'lucide-chart-no-axes-gantt': return [id, 'Chart no axes Gantt'];
-					case 'lucide-circle-x': return [id, 'Circle X'];
-					case 'lucide-clipboard-x': return [id, 'Clipboard X'];
-					case 'lucide-code-xml': return [id, 'Code XML'];
-					case 'lucide-copy-x': return [id, 'Copy X'];
-					case 'lucide-cpu': return [id, 'CPU'];
-					case 'lucide-creative-commons': return [id, 'Creative Commons'];
-					case 'lucide-dna': return [id, 'DNA'];
-					case 'lucide-dna-off': return [id, 'DNA off'];
-					case 'lucide-file-axis-3d': return [id, 'File axis 3D'];
-					case 'lucide-file-json': return [id, 'File JSON'];
-					case 'lucide-file-json-2': return [id, 'File JSON 2'];
-					case 'lucide-file-x': return [id, 'File X'];
-					case 'lucide-file-x2': return [id, 'File X 2'];
-					case 'lucide-filter-x': return [id, 'Filter X'];
-					case 'lucide-folder-git': return [id, 'Folder Git'];
-					case 'lucide-folder-git-2': return [id, 'Folder Git 2'];
-					case 'lucide-folder-x': return [id, 'Folder X'];
-					case 'lucide-github': return [id, 'GitHub'];
-					case 'lucide-gitlab': return [id, 'GitLab'];
-					case 'lucide-grid-2x-2': return [id, 'Grid 2x2'];
-					case 'lucide-grid-2x-2check': return [id, 'Grid 2x2 check'];
-					case 'lucide-grid-2x-2plus': return [id, 'Grid 2x2 plus'];
-					case 'lucide-grid-2x-2x': return [id, 'Grid 2x2 X'];
-					case 'lucide-grid-3x-3': return [id, 'Grid 3x3'];
-					case 'lucide-hdmi-port': return [id, 'HDMI port'];
-					case 'lucide-id-card': return [id, 'ID card'];
-					case 'lucide-iteration-ccw': return [id, 'Iteration CCW'];
-					case 'lucide-iteration-cw': return [id, 'Iteration CW'];
-					case 'lucide-linkedin': return [id, 'LinkedIn'];
-					case 'lucide-list-x': return [id, 'List X'];
-					case 'lucide-mail-x': return [id, 'Mail X'];
-					case 'lucide-map-pin-x': return [id, 'Map pin X'];
-					case 'lucide-map-pin-xinside': return [id, 'Map pin X inside'];
-					case 'lucide-message-circle-x': return [id, 'Message circle X'];
-					case 'lucide-message-square-x': return [id, 'Message square X'];
-					case 'lucide-monitor-x': return [id, 'Monitor X'];
-					case 'lucide-move-3d': return [id, 'Move 3D'];
-					case 'lucide-navigation-2off': return [id, 'Navigation 2 off'];
-					case 'lucide-nfc': return [id, 'NFC'];
-					case 'lucide-octagon-x': return [id, 'Octagon X'];
-					case 'lucide-package-x': return [id, 'Package X'];
-					case 'lucide-pc-case': return [id, 'PC case'];
-					case 'lucide-qr-code': return [id, 'QR code'];
-					case 'lucide-receipt-indian-rupee': return [id, 'Receipt Indian rupee'];
-					case 'lucide-receipt-japanese-yen': return [id, 'Receipt Japanese yen'];
-					case 'lucide-receipt-russian-ruble': return [id, 'Receipt Russian ruble'];
-					case 'lucide-receipt-swiss-franc': return [id, 'Receipt Swiss franc'];
-					case 'lucide-refresh-ccw': return [id, 'Refresh CCW'];
-					case 'lucide-refresh-ccw-dot': return [id, 'Refresh CCW dot'];
-					case 'lucide-refresh-cw': return [id, 'Refresh CW'];
-					case 'lucide-refresh-cw-off': return [id, 'Refresh CW off'];
-					case 'lucide-square-chart-gantt': return [id, 'Square chart Gantt'];
-					case 'lucide-square-gantt-chart': return [id, 'Square Gantt chart'];
-					case 'lucide-square-m': return [id, 'Square M'];
-					case 'lucide-square-x': return [id, 'Square X'];
-					case 'lucide-ticket-x': return [id, 'Ticket X'];
-					case 'lucide-rotate-3d': return [id, 'Rotate 3D'];
-					case 'lucide-rotate-ccw': return [id, 'Rotate CCW'];
-					case 'lucide-rotate-ccw-square': return [id, 'Rotate CCW square'];
-					case 'lucide-rotate-cw': return [id, 'Rotate CW'];
-					case 'lucide-rotate-cw-square': return [id, 'Rotate CW square'];
-					case 'lucide-tv': return [id, 'TV'];
-					case 'lucide-tv-2': return [id, 'TV 2'];
-					case 'lucide-tv-minimal': return [id, 'TV minimal'];
-					case 'lucide-tv-minimal-play': return [id, 'TV minimal play'];
-					case 'lucide-rss': return [id, 'RSS'];
-					case 'lucide-scale-3d': return [id, 'Scale 3D'];
-					case 'lucide-scan-qr-code': return [id, 'Scan QR code'];
-					case 'lucide-search-x': return [id, 'Search X'];
-					case 'lucide-shield-x': return [id, 'Shield X'];
-					case 'lucide-smartphone-nfc': return [id, 'Smartphone NFC'];
-					case 'lucide-user-x': return [id, 'User X'];
-					case 'lucide-user-x2': return [id, 'User X 2'];
-					case 'lucide-user-round-x': return [id, 'User round X'];
-					case 'lucide-wifi': return [id, 'WiFi'];
-					case 'lucide-wifi-high': return [id, 'WiFi high'];
-					case 'lucide-wifi-low': return [id, 'WiFi low'];
-					case 'lucide-wifi-off': return [id, 'WiFi off'];
-					case 'lucide-wifi-zero': return [id, 'WiFi zero'];
-					case 'refresh-cw-off': return [id, 'Refresh CW off'];
-					case 'uppercase-lowercase-a': return [id, 'Uppercase lowercase A'];
-				}
-			})
-			// Sort icon names alphabetically
-			.sort(([, aName], [, bName]) => {
-				return (aName && bName) ? aName.localeCompare(bName) : 0;
-			})
-			// Populate ICONS map
-			.forEach(([id, name]) => {
-				if (id && name) ICONS.set(id, name);
-			});
 			this.populateIconMapFromPack();
 
 			this.startManagers();
@@ -686,6 +601,102 @@ export default class IconicPlugin extends Plugin {
 			?? icon.variants.regular
 			?? Object.values(icon.variants)[0]
 			?? null;
+	}
+
+	getFolderDefaultIcon(isOpen = false): string {
+		return this.getPackIconOrFallback(isOpen ? 'folder-open' : 'folder');
+	}
+
+	getFileTypeDefaultIcon(extension: string, fallback: string | null = null): string | null {
+		if (!this.settings.showFileTypeIcons) return fallback;
+
+		const normalizedExtension = extension.toLowerCase();
+		let packSlug: string | null = null;
+		switch (normalizedExtension) {
+			case 'md':
+			case 'markdown':
+			case 'base':
+				packSlug = 'file-md';
+				break;
+			case 'canvas':
+				return 'lucide-layout-dashboard';
+			case 'pdf':
+				packSlug = 'file-pdf';
+				break;
+			case 'doc':
+			case 'docx':
+			case 'docm':
+			case 'dot':
+			case 'dotx':
+			case 'pages':
+			case 'rtf':
+				packSlug = 'file-doc';
+				break;
+			case 'xls':
+			case 'xlsx':
+			case 'xlsm':
+			case 'numbers':
+				packSlug = 'file-xls';
+				break;
+			case 'ppt':
+			case 'pptx':
+			case 'pptm':
+			case 'key':
+			case 'keynote':
+				packSlug = 'file-ppt';
+				break;
+			case 'csv':
+				packSlug = 'file-csv';
+				break;
+			case 'txt':
+			case 'text':
+				packSlug = 'file-txt';
+				break;
+			case 'html':
+			case 'htm':
+				packSlug = 'file-html';
+				break;
+			case 'js':
+			case 'jsx':
+				packSlug = 'file-js';
+				break;
+			case 'ts':
+			case 'tsx':
+				packSlug = 'file-ts';
+				break;
+			case 'py':
+				packSlug = 'file-py';
+				break;
+			case 'rs':
+				packSlug = 'file-rs';
+				break;
+			case 'sql':
+				packSlug = 'file-sql';
+				break;
+			case 'json':
+			case 'yaml':
+			case 'yml':
+			case 'toml':
+			case 'xml':
+			case 'css':
+				packSlug = 'file-code';
+				break;
+			default:
+				if (normalizedExtension === 'png') packSlug = 'file-png';
+				else if (normalizedExtension === 'jpg' || normalizedExtension === 'jpeg') packSlug = 'file-jpg';
+				else if (normalizedExtension === 'svg') packSlug = 'file-svg';
+				else if (IMAGE_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-image';
+				else if (AUDIO_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-audio';
+				else if (VIDEO_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-video';
+				else if (ARCHIVE_EXTENSIONS.includes(normalizedExtension)) packSlug = 'file-zip';
+		}
+
+		return packSlug ? this.getPackIconOrFallback(packSlug) : fallback;
+	}
+
+	private getPackIconOrFallback(slug: string): string {
+		const packIcon = `nicons:${slug}`;
+		return PACK_ICONS.has(packIcon) ? packIcon : PACK_ICON_FALLBACKS[slug] ?? 'lucide-file';
 	}
 
 	private applyIconPack(iconPack: ScannedIconPack, displayName?: string): void {
@@ -1055,20 +1066,13 @@ export default class IconicPlugin extends Plugin {
 		const fileIcon = this.settings.fileIcons[fileId] ?? {};
 		let iconDefault = null;
 
-		if (tFile instanceof TFile && (fileIcon.color || this.settings.showAllFileIcons)) {
-			if (extension === 'canvas') {
-				iconDefault = 'lucide-layout-dashboard';
-			} else if (extension === 'pdf') {
-				iconDefault = 'lucide-file-text';
-			} else if (IMAGE_EXTENSIONS.includes(extension)) {
-				iconDefault = 'lucide-image';
-			} else if (AUDIO_EXTENSIONS.includes(extension)) {
-				iconDefault = 'lucide-file-audio';
-			} else {
-				iconDefault = 'lucide-file';
+		if (tFile instanceof TFile) {
+			const typeIcon = this.getFileTypeDefaultIcon(extension);
+			if (fileIcon.color || this.settings.showAllFileIcons || typeIcon) {
+				iconDefault = typeIcon ?? this.getFileTypeDefaultIcon(extension, 'lucide-file');
 			}
 		} else if (tFile instanceof TFolder && (fileIcon.color && !this.settings.minimalFolderIcons || this.settings.showAllFolderIcons)) {
-			iconDefault = 'lucide-folder-closed';
+			iconDefault = this.getFolderDefaultIcon(false);
 		}
 
 		return {
@@ -1155,16 +1159,7 @@ export default class IconicPlugin extends Plugin {
 				} else if (subpath.startsWith('#')) {
 					iconDefault = 'lucide-heading';
 				} else {
-					iconDefault = 'lucide-file';
-					if (!unloading) {
-						if (extension === 'pdf') {
-							iconDefault = 'lucide-file-text';
-						} else if (IMAGE_EXTENSIONS.includes(extension)) {
-							iconDefault = 'lucide-image';
-						} else if (AUDIO_EXTENSIONS.includes(extension)) {
-							iconDefault = 'lucide-file-audio';
-						}
-					}
+					iconDefault = unloading ? 'lucide-file' : this.getFileTypeDefaultIcon(extension, 'lucide-file');
 				}
 				bmarkIcon = this.settings.fileIcons[id] ?? {};
 				break;
@@ -1173,7 +1168,7 @@ export default class IconicPlugin extends Plugin {
 				id = path;
 				name = basename;
 				bmarkIcon = this.settings.fileIcons[id] ?? {};
-				iconDefault = 'lucide-folder';
+				iconDefault = this.getFolderDefaultIcon(false);
 				break;
 			}
 			case 'group': {
@@ -1181,7 +1176,7 @@ export default class IconicPlugin extends Plugin {
 				name = bmarkBase.title;
 				bmarkIcon = this.settings.bookmarkIcons[id] ?? {};
 				if (bmarkIcon.color && !this.settings.minimalFolderIcons || this.settings.showAllFolderIcons) {
-					iconDefault = 'lucide-folder-closed';
+					iconDefault = this.getFolderDefaultIcon(false);
 				}
 				break;
 			}

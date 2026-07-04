@@ -34,10 +34,8 @@ export default abstract class IconManager {
 		iconEl.addClass('iconic-icon');
 
 		if (item.icon) {
-			if (PACK_ICONS.has(item.icon) && this.plugin.renderPackIcon(iconEl, item.icon, item.color)) {
-				// Rendered by Nicons icon pack.
-			} else if (ICONS.has(item.icon)) {
-				setIcon(iconEl, item.icon);
+			if (this.renderIconId(iconEl, item.icon, item.color)) {
+				// Rendered by Nicons icon pack or Obsidian icon registry.
 			} else if (EMOJIS.has(item.icon)) {
 				iconEl.empty();
 				const emojiEl = iconEl.createDiv({ cls: 'iconic-emoji', text: item.icon });
@@ -46,14 +44,14 @@ export default abstract class IconManager {
 			iconEl.show();
 		} else if (iconEl.hasClass('collapse-icon')) {
 			if (this.plugin.settings.showAllFolderIcons && 'iconDefault' in item && item.iconDefault) {
-				setIcon(iconEl, item.iconDefault);
+				this.renderIconId(iconEl, item.iconDefault, item.color);
 			} else {
 				setIcon(iconEl, 'right-triangle');
 				iconEl.removeClass('iconic-icon');
 			}
 			iconEl.show();
 		} else if ('iconDefault' in item && item.iconDefault) {
-			setIcon(iconEl, item.iconDefault);
+			this.renderIconId(iconEl, item.iconDefault, item.color);
 			iconEl.show();
 		} else {
 			iconEl.removeClass('iconic-icon');
@@ -74,6 +72,14 @@ export default abstract class IconManager {
 		} else {
 			this.stopEventListener(iconEl, 'click');
 		}
+	}
+
+	private renderIconId(iconEl: HTMLElement, iconId: string, color: string | null): boolean {
+		if (PACK_ICONS.has(iconId)) {
+			return this.plugin.renderPackIcon(iconEl, iconId, color);
+		}
+		setIcon(iconEl, iconId);
+		return true;
 	}
 
 	/**

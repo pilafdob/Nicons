@@ -332,6 +332,10 @@ export default class Strings {
 			name: 'Show all file icons',
 			desc: 'Show icons for files that have no custom icon.',
 		},
+		showFileTypeIcons: {
+			name: 'Show file type icons',
+			desc: 'Show default icons for recognized file types, like Word, Pages, PDF, image, audio, and archive files.',
+		},
 		showAllFolderIcons: {
 			name: 'Show all folder icons',
 			desc: 'Show icons for folders that have no custom icon.',
