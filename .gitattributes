@@ -1,0 +1,8 @@
+vendor/** linguist-vendored
+src/BundledPhosphor.ts linguist-generated
+main.js linguist-generated
+*.png binary
+*.webp binary
+*.ttf binary
+*.woff binary
+*.woff2 binary

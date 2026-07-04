@@ -1,0 +1,25 @@
+{
+  "name": "nicons",
+  "version": "0.1.0",
+  "description": "Customize Obsidian icons with bundled Phosphor icon assets.",
+  "main": "main.js",
+  "scripts": {
+    "prebuild": "node scripts/generate-bundled-phosphor.mjs",
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "icons",
+    "phosphor"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@codemirror/language": "^6.12.3",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.5",
+    "obsidian": "^1.8.7",
+    "typescript": "^5.8.0"
+  }
+}
