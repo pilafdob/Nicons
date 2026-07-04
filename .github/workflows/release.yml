@@ -10,8 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
-      attestations: write
 
     steps:
       - uses: actions/checkout@v4
@@ -48,20 +46,12 @@ jobs:
           fs.writeFileSync(".release-notes.md", body + "\n");
           NODE
 
-      - name: Attest release assets
-        uses: actions/attest@v4
-        with:
-          subject-path: |
-            main.js
-            manifest.json
-            styles.css
-
       - name: Check for optional styles
         id: styles
         run: |
           [ -f styles.css ] && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release
+      - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

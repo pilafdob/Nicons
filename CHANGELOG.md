@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Fixed the GitHub release workflow so release assets are published correctly.
+
 ## 1.0.0
 
 - Ported Iconic's icon-management foundation into Nicons.
