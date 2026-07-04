@@ -32,12 +32,56 @@ export const SEARCH_ALIASES: Record<string, string[]> = {
 	subscription: ['receipt', 'invoice', 'money', 'credit card'],
 	subscriptions: ['receipt', 'invoice', 'money', 'credit card'],
 
-	school: ['student', 'graduation cap', 'book', 'books', 'notebook', 'chalkboard teacher', 'exam'],
+	school: ['student', 'backpack', 'book', 'books', 'notebook', 'chalkboard teacher', 'exam'],
 	study: ['student', 'book', 'books', 'notebook', 'pencil', 'exam'],
-	education: ['student', 'graduation cap', 'book', 'books', 'chalkboard teacher'],
+	education: ['student', 'backpack', 'book', 'books', 'chalkboard teacher'],
 	learn: ['student', 'book', 'books', 'brain', 'notebook'],
 	learning: ['student', 'book', 'books', 'brain', 'notebook'],
-	university: ['graduation cap', 'student', 'book', 'chalkboard teacher'],
+	university: ['student', 'backpack', 'book', 'chalkboard teacher'],
+	subject: ['book', 'notebook', 'student', 'chalkboard teacher'],
+	class: ['chalkboard teacher', 'student', 'book', 'notebook'],
+	classes: ['chalkboard teacher', 'student', 'book', 'notebook'],
+	course: ['student', 'book', 'notebook', 'chalkboard teacher'],
+	courses: ['student', 'book', 'notebook', 'chalkboard teacher'],
+	homework: ['notebook', 'pencil', 'book open text', 'exam'],
+	exam: ['exam', 'student', 'notebook', 'check square'],
+	test: ['exam', 'student', 'notebook', 'check square'],
+	tests: ['exam', 'student', 'notebook', 'check square'],
+
+	science: ['flask', 'test tube', 'atom', 'microscope', 'dna', 'biohazard', 'brain', 'leaf'],
+	lab: ['flask', 'test tube', 'microscope', 'atom'],
+	laboratory: ['flask', 'test tube', 'microscope', 'atom'],
+	research: ['microscope', 'flask', 'test tube', 'magnifying glass'],
+	chemistry: ['flask', 'test tube', 'atom', 'microscope', 'biohazard', 'warning diamond'],
+	chemical: ['flask', 'test tube', 'atom', 'biohazard', 'drop'],
+	chem: ['flask', 'test tube', 'atom', 'microscope', 'biohazard'],
+	biology: ['dna', 'microscope', 'leaf', 'brain', 'cell signal full', 'biohazard', 'first aid kit'],
+	bio: ['dna', 'microscope', 'leaf', 'brain', 'biohazard'],
+	physics: ['atom', 'magnet', 'lightning', 'wave sine', 'ruler', 'thermometer'],
+	geography: ['globe hemisphere east', 'globe hemisphere west', 'globe', 'map trifold', 'map pin', 'compass rose'],
+	geo: ['globe', 'map trifold', 'map pin', 'compass rose'],
+	history: ['scroll', 'book open text', 'clock counter clockwise', 'archive', 'bank', 'castle turret'],
+	religion: ['church', 'star of david', 'star and crescent', 'yin yang', 'hands praying'],
+	ethics: ['scales', 'hand heart', 'heart', 'users', 'question'],
+	ethik: ['scales', 'hand heart', 'heart', 'users', 'question'],
+	philosophy: ['brain', 'lightbulb', 'question', 'scales', 'book open text'],
+	art: ['palette', 'paint brush', 'paint bucket', 'pencil', 'image', 'aperture'],
+	arts: ['palette', 'paint brush', 'paint bucket', 'pencil', 'image', 'aperture'],
+	be: ['palette', 'paint brush', 'paint bucket', 'pencil', 'image'],
+	drawing: ['pencil', 'palette', 'paint brush', 'image'],
+	language: ['translate', 'book open text', 'chat text', 'globe', 'quotes'],
+	languages: ['translate', 'book open text', 'chat text', 'globe', 'quotes'],
+	english: ['translate', 'book open text', 'chat text', 'quotes'],
+	german: ['translate', 'book open text', 'chat text', 'globe hemisphere east'],
+	deutsch: ['translate', 'book open text', 'chat text', 'globe hemisphere east'],
+	spanish: ['translate', 'book open text', 'chat text', 'globe hemisphere west'],
+	espanol: ['translate', 'book open text', 'chat text', 'globe hemisphere west'],
+	latin: ['scroll', 'book open text', 'bank', 'columns', 'translate'],
+	music: ['music note', 'music notes', 'music notes simple', 'piano keys', 'headphones', 'speaker high', 'microphone'],
+	it: ['cpu', 'circuitry', 'desktop tower', 'terminal window', 'code', 'database', 'wifi high'],
+	ict: ['cpu', 'circuitry', 'desktop tower', 'terminal window', 'code', 'database'],
+	computer: ['desktop tower', 'cpu', 'circuitry', 'terminal window', 'code'],
+	computers: ['desktop tower', 'cpu', 'circuitry', 'terminal window', 'code'],
 
 	write: ['pencil', 'pen', 'edit', 'note'],
 	edit: ['pencil', 'pen', 'write'],
@@ -96,7 +140,6 @@ export const SEARCH_ALIASES: Record<string, string[]> = {
 	shop: ['shopping bag', 'shopping cart', 'basket', 'storefront', 'tag'],
 	store: ['storefront', 'shopping bag', 'shopping cart'],
 
-	music: ['music note', 'music notes', 'headphones', 'speaker high', 'microphone'],
 	audio: ['speaker high', 'headphones', 'music note', 'waveform'],
 	video: ['video camera', 'film slate', 'play circle'],
 	movie: ['film slate', 'video camera', 'popcorn'],
@@ -116,6 +159,8 @@ export const SEARCH_ALIASES: Record<string, string[]> = {
 
 export function normalizeSearchTerm(term: string): string {
 	return term
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
 		.toLowerCase()
 		.replace(/[-_]+/g, ' ')
 		.replace(/[^a-z0-9\s]+/g, ' ')

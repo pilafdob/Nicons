@@ -1,7 +1,7 @@
 {
   "name": "nicons",
-  "version": "1.0.1",
-  "description": "Customize Obsidian icons with bundled Phosphor icon assets.",
+  "version": "1.0.2",
+  "description": "Customize icons with bundled Phosphor icon assets.",
   "main": "main.js",
   "scripts": {
     "prebuild": "node scripts/generate-bundled-phosphor.mjs",

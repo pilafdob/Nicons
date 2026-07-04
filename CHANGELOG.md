@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Removed redundant wording from the manifest description.
+- Raised the minimum app version to match the APIs used by the plugin.
+- Compressed bundled Phosphor icon data to keep the release bundle under 5 MB.
+- Fixed source-review style and popout-compatibility warnings.
+- Restored release asset attestations without blocking release creation.
+
 ## 1.0.1
 
 - Fixed the GitHub release workflow so release assets are published correctly.
