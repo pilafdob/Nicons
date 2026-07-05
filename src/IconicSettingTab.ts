@@ -1,7 +1,8 @@
-import { ExtraButtonComponent, Notice, Platform, PluginSettingTab, SettingGroup } from 'obsidian';
-import IconicPlugin, { FileItem, STRINGS } from 'src/IconicPlugin.js';
+import { ExtraButtonComponent, Notice, Platform, PluginSettingTab, SettingGroup, setIcon } from 'obsidian';
+import IconicPlugin, { EMOJIS, FileItem, ICONS, Item, STRINGS } from 'src/IconicPlugin.js';
 import RulePicker from 'src/dialogs/RulePicker.js';
 import UsageChecker from 'src/dialogs/UsageChecker.js';
+import IconPicker from 'src/dialogs/IconPicker.js';
 import ColorUtils from 'src/ColorUtils.js';
 
 /**
@@ -17,6 +18,8 @@ export default class IconicSettingTab extends PluginSettingTab {
 		colorPicker1: undefined as unknown,
 		colorPicker2: undefined as unknown,
 	} as Record<string, ExtraButtonComponent>;
+	private newIconColorIcon: string | null = null;
+	private newIconColorColor: string | null = 'green';
 	public icon = 'lucide-images';
 
 	constructor(plugin: IconicPlugin) {
@@ -67,7 +70,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.iconPackVariant)
 						.onChange(value => {
 							this.plugin.settings.iconPackVariant = value;
-							this.plugin.saveSettings();
+							void this.plugin.saveSettings();
 							this.plugin.refreshManagers();
 						});
 				})
@@ -80,10 +83,9 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.addSlider(slider => slider
 				.setLimits(75, 150, 5)
 				.setValue(this.plugin.settings.iconPackSize)
-				.setDynamicTooltip()
 				.onChange(value => {
 					this.plugin.settings.iconPackSize = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 					this.plugin.refreshManagers();
 				})
@@ -126,7 +128,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.biggerIcons, value);
 					this.plugin.settings.biggerIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				});
 				this.refreshIndicator(this.indicators.biggerIcons, dropdown.getValue());
@@ -156,7 +158,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.clickableIcons, value);
 					this.plugin.settings.clickableIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers();
 					this.plugin.refreshBody();
 				});
@@ -176,7 +178,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showAllFileIcons)
 				.onChange(value => {
 					this.plugin.settings.showAllFileIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('file');
 				})
 			)
@@ -190,7 +192,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showFileTypeIcons)
 				.onChange(value => {
 					this.plugin.settings.showFileTypeIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('file', 'folder');
 				})
 			)
@@ -224,7 +226,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 						return;
 					}
 					this.plugin.settings.fileTypeColors[extension] = newFileTypeColor;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('file');
 					this.display();
 				})
@@ -238,7 +240,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 					.setValueRgb(ColorUtils.toRgbObject(color))
 					.onChange(value => {
 						this.plugin.settings.fileTypeColors[extension] = value;
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 						this.plugin.refreshManagers('file');
 					})
 				)
@@ -247,12 +249,106 @@ export default class IconicSettingTab extends PluginSettingTab {
 					.setTooltip(STRINGS.settings.fileTypeColors.remove)
 					.onClick(() => {
 						delete this.plugin.settings.fileTypeColors[extension];
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 						this.plugin.refreshManagers('file');
 						this.display();
 					})
 				)
 			);
+		}
+
+		// SETTING: Icon colours
+		groupSidebarsAndTabs.addSetting(setting => {
+			let previewButton: ExtraButtonComponent;
+			setting
+				.setName(STRINGS.settings.iconColors.name)
+				.setDesc(STRINGS.settings.iconColors.desc)
+				.addExtraButton(button => {
+					previewButton = button;
+					this.renderIconColorPreview(button.extraSettingsEl, this.newIconColorIcon, this.newIconColorColor);
+					button
+						.setTooltip(STRINGS.settings.iconColors.choose)
+						.onClick(() => this.openIconColorPicker(this.newIconColorIcon, this.newIconColorColor, (icon, color) => {
+							this.newIconColorIcon = icon;
+							this.newIconColorColor = color;
+							this.display();
+						}));
+				})
+				.addButton(button => button
+					.setButtonText(STRINGS.settings.iconColors.choose)
+					.onClick(() => this.openIconColorPicker(this.newIconColorIcon, this.newIconColorColor, (icon, color) => {
+						this.newIconColorIcon = icon;
+						this.newIconColorColor = color;
+						this.display();
+					}))
+				)
+				.addColorPicker(colorPicker => colorPicker
+					.setValueRgb(ColorUtils.toRgbObject(this.newIconColorColor))
+					.onChange(value => {
+						this.newIconColorColor = value;
+						if (previewButton) this.renderIconColorPreview(previewButton.extraSettingsEl, this.newIconColorIcon, value);
+					})
+				)
+				.addButton(button => button
+					.setButtonText(STRINGS.settings.iconColors.add)
+					.setCta()
+					.onClick(() => {
+						if (!this.newIconColorIcon || !this.newIconColorColor) {
+							new Notice(STRINGS.settings.iconColors.invalidIcon);
+							return;
+						}
+						this.plugin.settings.iconColors[this.newIconColorIcon] = this.newIconColorColor;
+						this.newIconColorIcon = null;
+						this.newIconColorColor = 'green';
+						void this.plugin.saveSettings();
+						this.plugin.refreshManagers();
+						this.display();
+					})
+				);
+		});
+
+		for (const [icon, color] of Object.entries(this.plugin.settings.iconColors).sort((a, b) => this.getIconLabel(a[0]).localeCompare(this.getIconLabel(b[0])))) {
+			groupSidebarsAndTabs.addSetting(setting => {
+				let previewButton: ExtraButtonComponent;
+				setting
+					.setName(this.getIconLabel(icon))
+					.addExtraButton(button => {
+						previewButton = button;
+						this.renderIconColorPreview(button.extraSettingsEl, icon, color);
+						button
+							.setTooltip(STRINGS.settings.iconColors.choose)
+							.onClick(() => this.openIconColorPicker(icon, color, (newIcon, newColor) => {
+								if (!newIcon || !newColor) {
+									new Notice(STRINGS.settings.iconColors.invalidIcon);
+									return;
+								}
+								if (newIcon !== icon) delete this.plugin.settings.iconColors[icon];
+								this.plugin.settings.iconColors[newIcon] = newColor;
+								void this.plugin.saveSettings();
+								this.plugin.refreshManagers();
+								this.display();
+							}));
+					})
+					.addColorPicker(colorPicker => colorPicker
+						.setValueRgb(ColorUtils.toRgbObject(color))
+						.onChange(value => {
+							this.plugin.settings.iconColors[icon] = value;
+							if (previewButton) this.renderIconColorPreview(previewButton.extraSettingsEl, icon, value);
+							void this.plugin.saveSettings();
+							this.plugin.refreshManagers();
+						})
+					)
+					.addExtraButton(button => button
+						.setIcon('lucide-trash-2')
+						.setTooltip(STRINGS.settings.iconColors.remove)
+						.onClick(() => {
+							delete this.plugin.settings.iconColors[icon];
+							void this.plugin.saveSettings();
+							this.plugin.refreshManagers();
+							this.display();
+						})
+					);
+			});
 		}
 
 		// SETTING: Show all folder icons
@@ -263,7 +359,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showAllFolderIcons)
 				.onChange(value => {
 					this.plugin.settings.showAllFolderIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('folder');
 				})
 			)
@@ -277,7 +373,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.minimalFolderIcons)
 				.onChange(value => {
 					this.plugin.settings.minimalFolderIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('folder');
 				})
 			)
@@ -291,7 +387,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showMarkdownTabIcons)
 				.onChange(value => {
 					this.plugin.settings.showMarkdownTabIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				})
 			)
@@ -309,7 +405,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showTitleIcons)
 				.onChange(value => {
 					this.plugin.settings.showTitleIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('file');
 				})
 			)
@@ -323,7 +419,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showTagPillIcons)
 				.onChange(value => {
 					this.plugin.settings.showTagPillIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('tag');
 				})
 			)
@@ -341,7 +437,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showMenuActions)
 				.onChange(value => {
 					this.plugin.settings.showMenuActions = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers();
 				})
 			)
@@ -355,7 +451,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showSuggestionIcons)
 				.onChange(value => {
 					this.plugin.settings.showSuggestionIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 			)
 		);
@@ -368,7 +464,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showQuickSwitcherIcons)
 				.onChange(value => {
 					this.plugin.settings.showQuickSwitcherIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 			)
 		);
@@ -381,7 +477,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showMoveFileIcons)
 				.onChange(value => {
 					this.plugin.settings.showMoveFileIcons = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 			)
 		);
@@ -407,7 +503,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.showItemName, value);
 					this.plugin.settings.showItemName = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				});
 				this.refreshIndicator(this.indicators.showItemName, dropdown.getValue());
 			})
@@ -430,7 +526,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.biggerSearchResults, value);
 					this.plugin.settings.biggerSearchResults = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				});
 				this.refreshIndicator(this.indicators.biggerSearchResults, dropdown.getValue());
@@ -444,10 +540,9 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.addSlider(slider => slider
 				.setLimits(10, 300, 10)
 				.setValue(this.plugin.settings.maxSearchResults)
-				.setDynamicTooltip()
 				.onChange(value => {
 					this.plugin.settings.maxSearchResults = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 			)
 		);
@@ -470,7 +565,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.colorPicker1, value);
 					this.plugin.settings.colorPicker1 = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 				this.refreshIndicator(this.indicators.colorPicker1, dropdown.getValue());
 			})
@@ -494,7 +589,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onChange(value => {
 					this.refreshIndicator(this.indicators.colorPicker2, value);
 					this.plugin.settings.colorPicker2 = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				});
 				this.refreshIndicator(this.indicators.colorPicker2, dropdown.getValue());
 			})
@@ -512,7 +607,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.uncolorHover)
 				.onChange(value => {
 					this.plugin.settings.uncolorHover = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				})
 			)
@@ -526,7 +621,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.uncolorDrag)
 				.onChange(value => {
 					this.plugin.settings.uncolorDrag = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				})
 			)
@@ -540,7 +635,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.uncolorSelect)
 				.onChange(value => {
 					this.plugin.settings.uncolorSelect = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshBody();
 				})
 			)
@@ -554,7 +649,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.uncolorQuick)
 				.onChange(value => {
 					this.plugin.settings.uncolorQuick = value;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					this.plugin.refreshManagers('ribbon');
 				})
 			)
@@ -605,7 +700,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.maxBackups.toString())
 				.onChange(value => {
 					this.plugin.settings.maxBackups = Number(value) || 0;
-					this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 				})
 			)
 		);
@@ -624,5 +719,46 @@ export default class IconicSettingTab extends PluginSettingTab {
 			default: indicator.extraSettingsEl.hide(); return;
 		}
 		indicator.extraSettingsEl.show();
+	}
+
+	private openIconColorPicker(icon: string | null, color: string | null, callback: (icon: string | null, color: string | null) => void): void {
+		const item: Item = {
+			id: 'icon-color-rule',
+			name: STRINGS.settings.iconColors.name,
+			category: 'rule',
+			icon,
+			color,
+			iconDefault: 'lucide-image',
+		};
+		IconPicker.openSingle(this.plugin, item, callback);
+	}
+
+	private renderIconColorPreview(iconEl: HTMLElement, icon: string | null, color: string | null): void {
+		iconEl.empty();
+		iconEl.removeClass('iconic-invisible');
+		if (!icon) {
+			setIcon(iconEl, 'lucide-image');
+			return;
+		}
+
+		if (this.plugin.renderPackIcon(iconEl, icon, color)) return;
+		if (EMOJIS.has(icon)) {
+			const emojiEl = iconEl.createDiv({ cls: 'iconic-emoji', text: icon });
+			if (color) IconicSettingTab.colorFilter(emojiEl, color);
+			return;
+		}
+
+		setIcon(iconEl, icon);
+		const svgEl = iconEl.find('.svg-icon');
+		if (svgEl && color) svgEl.style.setProperty('color', ColorUtils.toRgb(color));
+	}
+
+	private getIconLabel(icon: string): string {
+		return ICONS.get(icon) ?? EMOJIS.get(icon) ?? icon.replace(/^nicons:/, '').replace(/^lucide-/, '').replaceAll('-', ' ');
+	}
+
+	private static colorFilter(element: HTMLElement, color: string): void {
+		const [h, s] = ColorUtils.toHslArray(color);
+		element.style.filter = `grayscale() sepia() hue-rotate(${h - 50}deg) saturate(${s * 5}%)`;
 	}
 }

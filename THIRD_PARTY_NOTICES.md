@@ -36,7 +36,7 @@ SOFTWARE.
 This plugin includes source derived from Iconic.
 
 - Repository: https://github.com/gfxholo/iconic
-- Bundled reference location: `vendor/iconic-main/`
+- Source-derived code: `src/`
 - License: MIT No Attribution
 
 MIT No Attribution

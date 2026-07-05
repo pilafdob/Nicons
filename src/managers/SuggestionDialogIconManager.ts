@@ -27,44 +27,43 @@ export default class SuggestionDialogIconManager extends IconManager {
 
 	constructor(plugin: IconicPlugin) {
 		super(plugin);
-		const manager = this;
 
 		// Store original methods
-		this.onOpenOriginal = SuggestModal.prototype.onOpen;
-		this.setInstructionsOriginal = SuggestModal.prototype.setInstructions;
+		this.onOpenOriginal = Reflect.get(SuggestModal.prototype, 'onOpen') as typeof SuggestModal.prototype.onOpen;
+		this.setInstructionsOriginal = Reflect.get(SuggestModal.prototype, 'setInstructions') as typeof SuggestModal.prototype.setInstructions;
 
 		// Catch Quick Switcher, Quick Switcher++, and "Move file" dialogs
-		this.onOpenProxy = new Proxy(SuggestModal.prototype.onOpen, {
-			apply(onOpen, modal) {
-				if (manager.isDisabled()) {
+		this.onOpenProxy = new Proxy(this.onOpenOriginal, {
+			apply: (onOpen, modal) => {
+				if (this.isDisabled()) {
 					return onOpen.call(modal);
 				}
 
-				const modalType = manager.getModalType(modal);
+				const modalType = this.getModalType(modal);
 				if (!modalType) {
 					return onOpen.call(modal);
 				}
 
 				// Proxy renderSuggestion() for each instance
 				modal.renderSuggestion = new Proxy(modal.renderSuggestion, {
-					apply(renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) {
+					apply: (renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) => {
 						// Call base method first to pre-populate elements
 						const returnValue = renderSuggestion.call(modal, ...args);
 
 						switch (modalType) {
 							case QUICK_SWITCHER: {
 								modal.modalEl.addClass('iconic-prompt');
-								manager.refreshSuggestionIconQS(...args);
+								this.refreshSuggestionIconQS(...args);
 								break;
 							}
 							case QUICK_SWITCHER_PP: {
 								modal.modalEl.addClass('iconic-prompt');
-								manager.refreshSuggestionIconQSPP(...args);
+								this.refreshSuggestionIconQSPP(...args);
 								break;
 							}
 							case MOVE_FILE_DIALOG: {
 								modal.modalEl.addClass('iconic-prompt');
-								manager.refreshSuggestionIconMFD(...args);
+								this.refreshSuggestionIconMFD(...args);
 								break;
 							}
 						}
@@ -78,28 +77,28 @@ export default class SuggestionDialogIconManager extends IconManager {
 		});
 
 		// Catch Another Quick Switcher, which never call super.onOpen()
-		this.setInstructionsProxy = new Proxy(SuggestModal.prototype.setInstructions, {
-			apply(setInstructions, modal: SuggestModal<any>, args: [Instruction[]]) {
-				if (manager.isDisabled()) {
+		this.setInstructionsProxy = new Proxy(this.setInstructionsOriginal, {
+			apply: (setInstructions, modal: SuggestModal<any>, args: [Instruction[]]) => {
+				if (this.isDisabled()) {
 					return setInstructions.call(modal, ...args);
 				}
 
-				const modalType = manager.getModalType(modal);
+				const modalType = this.getModalType(modal);
 				if (modalType !== ANOTHER_QUICK_SWITCHER) {
 					return setInstructions.call(modal, ...args);
 				}
 
 				// Proxy renderSuggestion() for every instance
 				modal.renderSuggestion = new Proxy(modal.renderSuggestion, {
-					apply(renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) {
-						if (manager.isDisabled()) {
+					apply: (renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) => {
+						if (this.isDisabled()) {
 							return renderSuggestion.call(modal, ...args);
 						}
 						// Call base method first to pre-populate elements
 						const returnValue = renderSuggestion.call(modal, ...args);
 						modal.modalEl.addClass('iconic-another-quick-switcher');
 						// Refresh suggestions
-						manager.refreshSuggestionIconAQS(...args);
+						this.refreshSuggestionIconAQS(...args);
 						return returnValue;
 					}
 				});

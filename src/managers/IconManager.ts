@@ -1,5 +1,5 @@
 import { App, setIcon } from 'obsidian';
-import IconicPlugin, { Item, Icon, ICONS, EMOJIS } from 'src/IconicPlugin.js';
+import IconicPlugin, { Item, Icon, EMOJIS } from 'src/IconicPlugin.js';
 import ColorUtils from 'src/ColorUtils.js';
 import { PACK_ICONS } from 'src/IconPackService.js';
 
@@ -34,24 +34,27 @@ export default abstract class IconManager {
 		iconEl.addClass('iconic-icon');
 
 		if (item.icon) {
-			if (this.renderIconId(iconEl, item.icon, item.color)) {
+			const color = this.plugin.getIconRenderColor(item.icon, item.color);
+			if (this.renderIconId(iconEl, item.icon, color)) {
 				// Rendered by Nicons icon pack or Obsidian icon registry.
 			} else if (EMOJIS.has(item.icon)) {
 				iconEl.empty();
 				const emojiEl = iconEl.createDiv({ cls: 'iconic-emoji', text: item.icon });
-				if (item.color) IconManager.colorFilter(emojiEl, item.color);
+				if (color) IconManager.colorFilter(emojiEl, color);
 			}
 			iconEl.show();
 		} else if (iconEl.hasClass('collapse-icon')) {
 			if (this.plugin.settings.showAllFolderIcons && 'iconDefault' in item && item.iconDefault) {
-				this.renderIconId(iconEl, item.iconDefault, item.color);
+				const color = this.plugin.getIconRenderColor(item.iconDefault, item.color);
+				this.renderIconId(iconEl, item.iconDefault, color);
 			} else {
 				setIcon(iconEl, 'right-triangle');
 				iconEl.removeClass('iconic-icon');
 			}
 			iconEl.show();
 		} else if ('iconDefault' in item && item.iconDefault) {
-			this.renderIconId(iconEl, item.iconDefault, item.color);
+			const color = this.plugin.getIconRenderColor(item.iconDefault, item.color);
+			this.renderIconId(iconEl, item.iconDefault, color);
 			iconEl.show();
 		} else {
 			iconEl.removeClass('iconic-icon');
@@ -60,8 +63,10 @@ export default abstract class IconManager {
 
 		const svgEl = iconEl.find('.svg-icon');
 		if (svgEl) {
-			if (item.color) {
-				svgEl.style.setProperty('color', ColorUtils.toRgb(item.color));
+			const renderedIcon = item.icon ?? ('iconDefault' in item ? item.iconDefault : null);
+			const color = this.plugin.getIconRenderColor(renderedIcon, item.color);
+			if (color) {
+				svgEl.style.setProperty('color', ColorUtils.toRgb(color));
 			} else {
 				svgEl.style.removeProperty('color');
 			}

@@ -267,11 +267,6 @@ const VALUE_OPERATORS = [
 	'!hasValue',
 ];
 
-const PROPERTY_OPERATORS = [
-	'hasProperty',
-	'!hasProperty',
-];
-
 const WEEKDAY_VALUES = [
 	1,
 	2,
@@ -572,7 +567,7 @@ export default class RuleEditor extends Modal {
 					buttonEls.forEach(buttonEl => buttonEl.removeClass('iconic-button-selected'));
 					button.buttonEl.addClass('iconic-button-selected');
 					this.rule.match = 'all';
-					this.updateMatchesButton();
+					void this.updateMatchesButton();
 				});
 				buttonEls.push(button.buttonEl);
 			})
@@ -584,7 +579,7 @@ export default class RuleEditor extends Modal {
 					buttonEls.forEach(buttonEl => buttonEl.removeClass('iconic-button-selected'));
 					button.buttonEl.addClass('iconic-button-selected');
 					this.rule.match = 'any';
-					this.updateMatchesButton();
+					void this.updateMatchesButton();
 				});
 				buttonEls.push(button.buttonEl);
 			})
@@ -596,7 +591,7 @@ export default class RuleEditor extends Modal {
 					buttonEls.forEach(buttonEl => buttonEl.removeClass('iconic-button-selected'));
 					button.buttonEl.addClass('iconic-button-selected');
 					this.rule.match = 'none';
-					this.updateMatchesButton();
+					void this.updateMatchesButton();
 				});
 				buttonEls.push(button.buttonEl);
 			});
@@ -656,7 +651,7 @@ export default class RuleEditor extends Modal {
 				: ['mod-cta']
 			);
 
-		this.updateMatchesButton();
+		void this.updateMatchesButton();
 	}
 
 	/**
@@ -668,16 +663,16 @@ export default class RuleEditor extends Modal {
 				this.setConditionSource(condSetting, source);
 				this.setConditionOperator(condSetting, condition.operator);
 				this.setConditionValue(condSetting, condition.value);
-				this.updateMatchesButton();
+				void this.updateMatchesButton();
 			})
 			.onOperatorChange(operator => {
 				this.setConditionOperator(condSetting, operator);
 				this.setConditionValue(condSetting, condition.value);
-				this.updateMatchesButton();
+				void this.updateMatchesButton();
 			})
 			.onValueChange(value => {
 				this.setConditionValue(condSetting, value);
-				this.updateMatchesButton();
+				void this.updateMatchesButton();
 			})
 			.onRemove(() => this.removeCondition(condSetting))
 			.onDragStart((x, y) => this.onDragStart(condSetting, x, y))
@@ -690,7 +685,7 @@ export default class RuleEditor extends Modal {
 		this.setConditionValue(condSetting, condition.value);
 		this.scrollerEl.append(condSetting.settingEl);
 
-		this.updateMatchesButton();
+		void this.updateMatchesButton();
 	}
 
 	/**
@@ -962,7 +957,7 @@ export default class RuleEditor extends Modal {
 
 		// Hack to hide the browser-native drag ghost
 		settingEl.setCssStyles({ opacity: '0%' });
-		settingEl.win.requestAnimationFrame(() => settingEl.style.removeProperty('opacity'));
+		window.requestAnimationFrame(() => settingEl.style.removeProperty('opacity'));
 	}
 
 	private onDrag(setting: ConditionSetting, x: number, y: number): void {
@@ -1025,20 +1020,21 @@ export default class RuleEditor extends Modal {
 	private removeCondition(setting: ConditionSetting): void {
 		setting.settingEl.remove();
 		this.rule.conditions.remove(setting.condition);
-		this.updateMatchesButton();
+		void this.updateMatchesButton();
 	}
 
 	/**
 	 * Update number displayed on the matches button.
 	 */
 	private async updateMatchesButton(): Promise<void> {
-		if (!this.matchesButton) return;
+		const matchesButton = this.matchesButton;
+		if (!matchesButton) return;
 
 		// Show a loading spinner if check takes longer than 100ms
-		const timeoutId = this.modalEl.win.setTimeout(() => {
+		const timeoutId = window.setTimeout(() => {
 			// @ts-expect-error (Private API)
-			this.matchesButton.setLoading(true);
-			this.matchesButton.setDisabled(true);
+			matchesButton.setLoading(true);
+			matchesButton.setDisabled(true);
 		}, 100);
 
 		// Update matches
@@ -1046,22 +1042,22 @@ export default class RuleEditor extends Modal {
 			case 'file': this.matches = this.plugin.ruleManager!.judgeFiles(this.rule, new Date(), true); break;
 			case 'folder': this.matches = this.plugin.ruleManager!.judgeFolders(this.rule, new Date(), true); break;
 		}
-		this.modalEl.win.clearTimeout(timeoutId);
+		window.clearTimeout(timeoutId);
 
 		// Update button text
 		switch (this.matches.length) {
-			case 0: this.matchesButton.setButtonText(STRINGS.ruleEditor.buttonNoMatches); break;
-			case 1: this.matchesButton.setButtonText(STRINGS.ruleEditor.buttonMatch); break;
+			case 0: matchesButton.setButtonText(STRINGS.ruleEditor.buttonNoMatches); break;
+			case 1: matchesButton.setButtonText(STRINGS.ruleEditor.buttonMatch); break;
 			default: {
-				this.matchesButton.setButtonText(
+				matchesButton.setButtonText(
 					STRINGS.ruleEditor.buttonMatches.replace('{#}', this.matches.length.toString())
 				);
 				break;
 			}
 		}
 		// @ts-expect-error (Private API)
-		this.matchesButton.setLoading(false);
-		this.matchesButton.setDisabled(this.matches.length === 0);
+		matchesButton.setLoading(false);
+		matchesButton.setDisabled(this.matches.length === 0);
 	}
 
 	/**

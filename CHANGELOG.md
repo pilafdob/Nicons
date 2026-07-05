@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+
+- Addressed Obsidian community review warnings for async saves, cross-window DOM checks, timer APIs, deprecated slider calls, switch fallthroughs, and CSS compatibility.
+- Removed unused vendored Iconic reference source and unused Phosphor font CSS files from the source repo while keeping license attribution.
+- Added configurable default colours for selected icons.
+- Fixed single-file context menu icon changes in the file explorer.
+
 ## 1.3.0
 
 - Raised the minimum app version to match the settings APIs inherited from Iconic.

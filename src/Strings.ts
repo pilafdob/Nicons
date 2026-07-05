@@ -344,6 +344,14 @@ export default class Strings {
 			remove: 'Remove file type colour',
 			invalidExtension: 'Enter a file extension, like md or pdf.',
 		},
+		iconColors: {
+			name: 'Icon colours',
+			desc: 'Set fallback colours by icon, like green for every checkmark icon.',
+			choose: 'Choose icon',
+			add: 'Add',
+			remove: 'Remove icon colour',
+			invalidIcon: 'Choose an icon and colour first.',
+		},
 		showAllFolderIcons: {
 			name: 'Show all folder icons',
 			desc: 'Show icons for folders that have no custom icon.',

@@ -140,7 +140,8 @@ export default class IconPicker extends Modal {
 	 * Nudge the focused element.
 	 */
 	private nudgeFocus(event: KeyboardEvent): void {
-		if (!(event.target instanceof HTMLElement)) return;
+		const target = event.target as Node | null;
+		if (!target?.instanceOf(HTMLElement)) return;
 		let focusEl: Element | null = null;
 
 		switch (event.key) {
@@ -148,9 +149,9 @@ export default class IconPicker extends Modal {
 			case 'ArrowDown': this.nextColor(); return;
 			case 'ArrowLeft': {
 				// Search results
-				if (this.searchResultsSetting.settingEl.contains(event.target)) {
-					if (event.target !== this.searchResultsSetting.settingEl && event.target.previousElementSibling) {
-						focusEl = event.target.previousElementSibling;
+				if (this.searchResultsSetting.settingEl.contains(target)) {
+					if (target !== this.searchResultsSetting.settingEl && target.previousElementSibling) {
+						focusEl = target.previousElementSibling;
 					} else if (!event.repeat) {
 						focusEl = this.searchResultsSetting.controlEl.lastElementChild;
 					}
@@ -159,9 +160,9 @@ export default class IconPicker extends Modal {
 			}
 			case 'ArrowRight': {
 				// Search results
-				if (this.searchResultsSetting.settingEl.contains(event.target)) {
-					if (event.target !== this.searchResultsSetting.settingEl && event.target.nextElementSibling) {
-						focusEl = event.target.nextElementSibling;
+				if (this.searchResultsSetting.settingEl.contains(target)) {
+					if (target !== this.searchResultsSetting.settingEl && target.nextElementSibling) {
+						focusEl = target.nextElementSibling;
 					} else if (!event.repeat) {
 						focusEl = this.searchResultsSetting.controlEl.firstElementChild;
 					}
@@ -169,7 +170,7 @@ export default class IconPicker extends Modal {
 			}
 		}
 
-		if (focusEl instanceof HTMLElement) {
+		if (focusEl?.instanceOf(HTMLElement)) {
 			event.preventDefault();
 			focusEl.focus();
 		}
@@ -179,15 +180,16 @@ export default class IconPicker extends Modal {
 	 * Confirm the focused element.
 	 */
 	private confirmFocus(event: KeyboardEvent): void {
-		if (!(event.target instanceof HTMLElement)) return;
+		const target = event.target as Node | null;
+		if (!target?.instanceOf(HTMLElement)) return;
 
 		// Extra setting buttons
-		if (event.target.hasClass('extra-setting-button')) {
+		if (target.hasClass('extra-setting-button')) {
 			event.preventDefault();
-			event.target.click();
+			target.click();
 		}
 		// Color picker
-		else if (event.target === this.colorPickerEl) {
+		else if (target === this.colorPickerEl) {
 			event.preventDefault();
 			const rect = this.colorPickerEl.getBoundingClientRect();
 			const x = rect.x + rect.width / 4;
@@ -195,7 +197,7 @@ export default class IconPicker extends Modal {
 			this.openColorMenu(x, y);
 		}
 		// Search field
-		else if (event.target === this.searchField.inputEl && event.key === 'Enter') {
+		else if (target === this.searchField.inputEl && event.key === 'Enter') {
 			const [firstResultIcon] = this.searchResults.first() ?? [];
 			if (firstResultIcon) {
 				event.preventDefault();
@@ -208,11 +210,12 @@ export default class IconPicker extends Modal {
 	 * Delete the focused element.
 	 */
 	private deleteFocus(event: KeyboardEvent): void {
-		if (!(event.target instanceof HTMLElement)) return;
+		const target = event.target as Node | null;
+		if (!target?.instanceOf(HTMLElement)) return;
 
 		// Anywhere except the search field
-		if (event.target !== this.searchField.inputEl ) {
-			if (event.target === this.colorResetButton.extraSettingsEl) this.colorPickerEl.focus();
+		if (target !== this.searchField.inputEl ) {
+			if (target === this.colorResetButton.extraSettingsEl) this.colorPickerEl.focus();
 			this.resetColor();
 		}
 	}
@@ -354,7 +357,11 @@ export default class IconPicker extends Modal {
 			}
 		});
 		this.iconManager.setEventListener(this.colorPickerEl, 'wheel', event => {
-			event.deltaY + event.deltaX < 0 ? this.previousColor() : this.nextColor();
+			if (event.deltaY + event.deltaX < 0) {
+				this.previousColor();
+			} else {
+				this.nextColor();
+			}
 		}, { passive: true });
 		this.updateColorPicker();
 
@@ -455,7 +462,7 @@ export default class IconPicker extends Modal {
 			);
 
 		// Hack to guarantee initial focus
-		activeWindow.requestAnimationFrame(() => this.searchField.inputEl.select());
+		window.requestAnimationFrame(() => this.searchField.inputEl.select());
 
 		this.updateSearchResults();
 	}
@@ -705,7 +712,7 @@ export default class IconPicker extends Modal {
 		// Restore UI state
 		if (focusedIndex > -1) {
 			const iconEl = controlEl.children[focusedIndex];
-			if (iconEl instanceof HTMLElement) iconEl.focus();
+			if (iconEl.instanceOf(HTMLElement)) iconEl.focus();
 		}
 		settingEl.scrollLeft = scrollLeft;
 
@@ -894,6 +901,6 @@ export default class IconPicker extends Modal {
 		this.contentEl.empty();
 		this.iconManager.stopEventListeners();
 		this.iconManager.stopMutationObservers();
-		this.plugin.saveSettings(); // Save any changes to dialogState
+		void this.plugin.saveSettings(); // Save any changes to dialogState
 	}
 }

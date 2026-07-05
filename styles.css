@@ -270,11 +270,11 @@ a.tag {
 .iconic-search-results:focus-visible {
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
-.is-phone .iconic-search-results {
-	flex-direction: row !important;
+body.is-phone .iconic-search-results {
+	flex-direction: row;
 }
-.is-phone .iconic-search-results > .setting-item-control {
-	width: auto !important;
+body.is-phone .iconic-search-results > .setting-item-control {
+	width: auto;
 }
 
 /* Search result */
@@ -314,18 +314,18 @@ a.tag {
 }
 .iconic-rule,
 .iconic-condition {
-	column-gap: var(--size-4-2);
+	gap: var(--size-4-2);
 	transition: background-color 0.25s ease, border-top-color 0.25s ease, border-radius 0.25s ease, box-shadow 0.25s ease;
 }
-.is-phone .iconic-rule,
-.is-phone .iconic-condition {
-	flex-direction: row !important;
-	align-items: center !important;
-	padding: var(--size-4-4) !important;
+body.is-phone .setting-item.iconic-rule,
+body.is-phone .setting-item.iconic-condition {
+	flex-direction: row;
+	align-items: center;
+	padding: var(--size-4-4);
 }
-.is-phone .iconic-rule > .setting-item-control,
-.is-phone .iconic-condition > .setting-item-control {
-	width: auto !important;
+body.is-phone .setting-item.iconic-rule > .setting-item-control,
+body.is-phone .setting-item.iconic-condition > .setting-item-control {
+	width: auto;
 }
 .iconic-rule > *:first-child,
 .iconic-condition > *:first-child {
@@ -532,18 +532,18 @@ a.tag {
 }
 
 /* Colorless settings */
-.iconic-uncolor-hover .workspace-tab-header:hover .iconic-icon > .svg-icon,
-.iconic-uncolor-hover .tree-item-self:hover > .tree-item-icon.iconic-icon > .svg-icon,
-.iconic-uncolor-hover .side-dock-ribbon-action.iconic-icon:hover > .svg-icon,
-.iconic-uncolor-hover .iconic-search-result:hover > .svg-icon {
-	color: currentColor !important;
+body.iconic-uncolor-hover .workspace-tab-header:hover .iconic-icon > .svg-icon,
+body.iconic-uncolor-hover .tree-item-self:hover > .tree-item-icon.iconic-icon > .svg-icon,
+body.iconic-uncolor-hover .side-dock-ribbon-action.iconic-icon:hover > .svg-icon,
+body.iconic-uncolor-hover .iconic-search-result:hover > .svg-icon {
+	color: currentColor;
 }
-.iconic-uncolor-drag > .drag-ghost .svg-icon {
-	color: currentColor !important;
+body.iconic-uncolor-drag > .drag-ghost .svg-icon {
+	color: currentColor;
 }
-.iconic-uncolor-select .workspace-tab-header.is-active .iconic-icon > .svg-icon,
-.iconic-uncolor-select .tree-item-self.is-active > .tree-item-icon.iconic-icon > .svg-icon {
-	color: currentColor !important;
+body.iconic-uncolor-select .workspace-tab-header.is-active .iconic-icon > .svg-icon,
+body.iconic-uncolor-select .tree-item-self.is-active > .tree-item-icon.iconic-icon > .svg-icon {
+	color: currentColor;
 }
 
 /* Theme: Blue Topaz */

@@ -44,7 +44,7 @@ For manual testing, copy `main.js`, `manifest.json`, and `styles.css` into:
 
 ## Legal
 
-Nicons is licensed under the MIT License. It includes source derived from Iconic under MIT No Attribution and embeds Phosphor Icons under MIT; see `THIRD_PARTY_NOTICES.md`, `vendor/iconic-main/LICENSE`, and `vendor/phosphor-icons/LICENSE`.
+Nicons is licensed under the MIT License. It includes source derived from Iconic under MIT No Attribution and embeds Phosphor Icons under MIT; see `THIRD_PARTY_NOTICES.md` and `vendor/phosphor-icons/LICENSE`.
 
 ## Credits
 

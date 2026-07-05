@@ -21,7 +21,11 @@ export default class EditorIconManager extends IconManager {
 			this.refreshReadingModeHashtags(tags, tagEls);
 		});
 
-		const manager = this;
+		const getTagItem = (tagId: string) => this.plugin.getTagItem(tagId);
+		const onTagContextMenu = (tagId: string) => this.onTagContextMenu(tagId, true);
+		const refreshTag = (tagEl: HTMLElement, tag: TagItem | null, onContextMenu: () => void) => {
+			this.refreshTag(tagEl, tag, onContextMenu);
+		};
 		plugin.registerEditorExtension(ViewPlugin.fromClass(class {
 			update(update: ViewUpdate): void {
 				let viewport = update.view.viewport;
@@ -32,21 +36,21 @@ export default class EditorIconManager extends IconManager {
 
 					// Get both tag elements
 					const beginEl = update.view.domAtPos(nodeRef.to).node.parentElement;
-					if (!(beginEl instanceof HTMLElement)) return;
+					if (!beginEl?.instanceOf(HTMLElement)) return;
 					const endEl = beginEl?.nextElementSibling;
-					if (!(endEl instanceof HTMLElement) || !endEl.hasClass('cm-hashtag-end')) return;
+					if (!endEl?.instanceOf(HTMLElement) || !endEl.hasClass('cm-hashtag-end')) return;
 
 					// Get tag
 					const tagId = endEl.getText();
-					const tag = manager.plugin.getTagItem(tagId);
+					const tag = getTagItem(tagId);
 
 					// Refresh tag
 					const onContextMenu = () => {
-						if (tag) manager.onTagContextMenu(tag.id, true);
+						if (tag) onTagContextMenu(tag.id);
 					};
-					manager.refreshTag(beginEl, tag, onContextMenu);
+					refreshTag(beginEl, tag, onContextMenu);
 					if (tag) tag.icon = null;
-					manager.refreshTag(endEl, tag, onContextMenu);
+					refreshTag(endEl, tag, onContextMenu);
 				}})
 			}
 		}));
@@ -118,12 +122,12 @@ export default class EditorIconManager extends IconManager {
 			childList: true,
 			subtree: true,
 		}, mutation => {
-			if (mutation.target instanceof HTMLElement && mutation.target.hasClass('metadata-property-icon')) {
+			if (mutation.target.instanceOf(HTMLElement) && mutation.target.hasClass('metadata-property-icon')) {
 				this.refreshViewIcons(view);
 				return;
 			}
 			for (const addedNode of mutation.addedNodes) {
-				if (addedNode instanceof HTMLElement && addedNode.hasClass('tree-item')) {
+				if (addedNode.instanceOf(HTMLElement) && addedNode.hasClass('tree-item')) {
 					this.refreshViewIcons(view);
 					return;
 				}
@@ -134,7 +138,7 @@ export default class EditorIconManager extends IconManager {
 			const pointEls = event.doc.elementsFromPoint(event.x, event.y);
 			const iconEl = pointEls.find(el => el.hasClass('metadata-property-icon'));
 			const propEl = pointEls.find(el => el.hasClass('metadata-property'));
-			if (iconEl && propEl instanceof HTMLElement) {
+			if (iconEl && propEl?.instanceOf(HTMLElement)) {
 				const domPropId = propEl.dataset.propertyKey; // Lowercase
 				const prop = domPropId ? this.plugin.getPropertyItem(domPropId) : null;
 				if (!prop) return;
@@ -155,7 +159,7 @@ export default class EditorIconManager extends IconManager {
 				const pointEls = event.doc.elementsFromPoint(event.x, event.y);
 				const iconEl = pointEls.find(el => el.hasClass('metadata-property-icon'));
 				const propEl = pointEls.find(el => el.hasClass('metadata-property'));
-				if (iconEl && propEl instanceof HTMLElement) {
+				if (iconEl && propEl?.instanceOf(HTMLElement)) {
 					const domPropId = propEl.dataset.propertyKey; // Lowercase
 					const prop = domPropId ? this.plugin.getPropertyItem(domPropId) : null;
 					if (prop) this.onPropertyContextMenu(prop.id);
@@ -217,9 +221,9 @@ export default class EditorIconManager extends IconManager {
 		if (!view.file) return;
 		// @ts-expect-error (Private API)
 		const titleEl = view.inlineTitleEl;
-		if (!(titleEl instanceof HTMLElement)) return;
+		if (!titleEl.instanceOf(HTMLElement)) return;
 		const headerEl = titleEl.closest('.mod-header, .cm-sizer');
-		if (!(headerEl instanceof HTMLElement)) return;
+		if (!headerEl?.instanceOf(HTMLElement)) return;
 
 		// Check whether title is highlighted
 		const selection = titleEl.win.getSelection();
