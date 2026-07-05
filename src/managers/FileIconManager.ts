@@ -83,10 +83,11 @@ export default class FileIconManager extends IconManager {
 			if (!file) continue;
 
 			// Check for an icon ruling
-			const page = file.items ? 'folder' : 'file';
+			const isFolder = file.category === 'folder';
+			const page = isFolder ? 'folder' : 'file';
 			const rule = this.plugin.ruleManager?.checkRuling(page, file.id, unloading) ?? file;
 
-			if (file.items) {
+			if (isFolder && file.items) {
 				// Refresh children immediately if folder is expanded
 				if (!itemEl.hasClass('is-collapsed')) {
 					const childItemEls = itemEl.findAll(':scope > .tree-item-children > .tree-item');
@@ -144,7 +145,7 @@ export default class FileIconManager extends IconManager {
 				innerEl?.insertAdjacentElement('beforebegin', iconEl);
 			}
 
-			if (file.items) {
+			if (isFolder) {
 				// Toggle default icon based on expand/collapse state
 				if (rule.iconDefault) rule.iconDefault = this.plugin.getFolderDefaultIcon(!itemEl.hasClass('is-collapsed'));
 			}
@@ -182,7 +183,7 @@ export default class FileIconManager extends IconManager {
 					const ghostEl = selfEl.doc.body.find(':scope > .drag-ghost > .drag-ghost-self');
 					if (ghostEl) {
 						const spanEl = ghostEl.find('span');
-						const ghostIcon = (file.category === 'folder' && rule.icon === null)
+						const ghostIcon = (isFolder && rule.icon === null)
 							? this.plugin.getFolderDefaultIcon(true)
 							: rule.icon || rule.iconDefault;
 						this.refreshIcon({ icon: ghostIcon, color: rule.color }, ghostEl);

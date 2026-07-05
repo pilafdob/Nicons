@@ -39,6 +39,7 @@ const IMAGE_EXTENSIONS = ['bmp', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'av
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', '3gp', 'flac', 'ogg', 'oga', 'opus'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
 const ARCHIVE_EXTENSIONS = ['zip', '7z', 'rar', 'tar', 'gz', 'bz2', 'xz'];
+const FILE_PACKAGE_EXTENSIONS = new Set(['key', 'keynote', 'numbers', 'pages']);
 const FILE_EXTENSION_ICON_ALIASES: Record<string, string> = {
 	htm: 'file-html',
 	jpeg: 'file-jpg',
@@ -176,6 +177,7 @@ interface IconicSettings {
 	appIcons: Record<string, { icon?: string, color?: string }>;
 	tabIcons: Record<string, { icon?: string, color?: string }>;
 	fileIcons: Record<string, { icon?: string, color?: string }>;
+	fileTypeColors: Record<string, string>;
 	bookmarkIcons: Record<string, { icon?: string, color?: string }>;
 	tagIcons: Record<string, { icon?: string, color?: string }>;
 	propertyIcons: Record<string, { icon?: string, color?: string }>;
@@ -244,6 +246,7 @@ const DEFAULT_SETTINGS: IconicSettings = {
 	appIcons: {},
 	tabIcons: {},
 	fileIcons: {},
+	fileTypeColors: {},
 	bookmarkIcons: {},
 	tagIcons: {},
 	propertyIcons: {},
@@ -688,6 +691,20 @@ export default class IconicPlugin extends Plugin {
 			: this.getDefaultFilePackIcon(fallback);
 	}
 
+	normalizeFileTypeExtension(extension: string): string | null {
+		const normalizedExtension = extension.trim().toLowerCase().replace(/^\.+/, '');
+		return /^[a-z0-9][a-z0-9_-]*$/.test(normalizedExtension)
+			? normalizedExtension
+			: null;
+	}
+
+	getFileTypeDefaultColor(extension: string): string | null {
+		const normalizedExtension = this.normalizeFileTypeExtension(extension);
+		return normalizedExtension
+			? this.settings.fileTypeColors[normalizedExtension] ?? null
+			: null;
+	}
+
 	private hasPackIcon(slug: string): boolean {
 		return PACK_ICONS.has(this.toPackIconId(slug));
 	}
@@ -1067,25 +1084,29 @@ export default class IconicPlugin extends Plugin {
 	private defineFileItem(tFile: TAbstractFile | null, fileId: string, unloading?: boolean): FileItem {
 		const { filename, basename, extension } = this.splitFilePath(fileId);
 		const fileIcon = this.settings.fileIcons[fileId] ?? {};
+		const isFilePackage = tFile instanceof TFolder && FILE_PACKAGE_EXTENSIONS.has(extension.toLowerCase());
+		const isFile = tFile instanceof TFile || isFilePackage;
+		const isFolder = tFile instanceof TFolder && !isFilePackage;
 		let iconDefault = null;
 
-		if (tFile instanceof TFile) {
+		if (isFile) {
 			const typeIcon = this.getFileTypeDefaultIcon(extension);
-			if (fileIcon.color || this.settings.showAllFileIcons || typeIcon) {
+			const typeColor = this.getFileTypeDefaultColor(extension);
+			if (fileIcon.color || typeColor || this.settings.showAllFileIcons || typeIcon) {
 				iconDefault = typeIcon ?? this.getFileTypeDefaultIcon(extension, 'lucide-file');
 			}
-		} else if (tFile instanceof TFolder && (fileIcon.color && !this.settings.minimalFolderIcons || this.settings.showAllFolderIcons)) {
+		} else if (isFolder && (fileIcon.color && !this.settings.minimalFolderIcons || this.settings.showAllFolderIcons)) {
 			iconDefault = this.getFolderDefaultIcon(false);
 		}
 
 		return {
 			id: fileId,
 			name: extension === 'md' ? basename : filename,
-			category: tFile instanceof TFolder ? 'folder' : 'file',
+			category: isFolder ? 'folder' : 'file',
 			iconDefault: unloading ? null : iconDefault,
 			icon: unloading ? null : fileIcon.icon ?? null,
-			color: unloading ? null : fileIcon.color ?? null,
-			items: tFile instanceof TFolder
+			color: unloading ? null : fileIcon.color ?? (fileIcon.icon ? null : this.getFileTypeDefaultColor(extension)),
+			items: isFolder
 				? tFile.children.map(tChild => this.defineFileItem(tChild, tChild.path, unloading))
 				: null,
 		}
@@ -1211,7 +1232,7 @@ export default class IconicPlugin extends Plugin {
 			category: bmarkBase.type ?? 'file',
 			iconDefault: iconDefault,
 			icon: unloading ? null : bmarkIcon?.icon ?? null,
-			color: unloading ? null : bmarkIcon?.color ?? null,
+			color: unloading ? null : bmarkIcon?.color ?? (bmarkIcon?.icon ? null : this.getFileTypeDefaultColor(extension)),
 			items: bmarkBase.items?.map((bmark: any) => this.defineBookmarkItem(bmark, unloading)) ?? null,
 		}
 	}
@@ -1575,6 +1596,7 @@ export default class IconicPlugin extends Plugin {
 		this.settings.appIcons = Object.fromEntries(Object.entries(this.settings.appIcons).sort());
 		this.settings.tabIcons = Object.fromEntries(Object.entries(this.settings.tabIcons).sort());
 		this.settings.fileIcons = Object.fromEntries(Object.entries(this.settings.fileIcons).sort());
+		this.settings.fileTypeColors = Object.fromEntries(Object.entries(this.settings.fileTypeColors).sort());
 		this.settings.bookmarkIcons = Object.fromEntries(Object.entries(this.settings.bookmarkIcons).sort());
 		this.settings.propertyIcons = Object.fromEntries(Object.entries(this.settings.propertyIcons).sort());
 		this.settings.ribbonIcons = Object.fromEntries(Object.entries(this.settings.ribbonIcons).sort());

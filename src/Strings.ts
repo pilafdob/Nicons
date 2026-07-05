@@ -336,6 +336,14 @@ export default class Strings {
 			name: 'Show file type icons',
 			desc: 'Show default icons for recognized file types, like Word, Pages, PDF, image, audio, and archive files.',
 		},
+		fileTypeColors: {
+			name: 'File type colours',
+			desc: 'Set fallback icon colours by extension, like md or pdf.',
+			extensionPlaceholder: 'md',
+			add: 'Add',
+			remove: 'Remove file type colour',
+			invalidExtension: 'Enter a file extension, like md or pdf.',
+		},
 		showAllFolderIcons: {
 			name: 'Show all folder icons',
 			desc: 'Show icons for folders that have no custom icon.',

@@ -1,7 +1,8 @@
-import { ExtraButtonComponent, Platform, PluginSettingTab, SettingGroup } from 'obsidian';
+import { ExtraButtonComponent, Notice, Platform, PluginSettingTab, SettingGroup } from 'obsidian';
 import IconicPlugin, { FileItem, STRINGS } from 'src/IconicPlugin.js';
 import RulePicker from 'src/dialogs/RulePicker.js';
 import UsageChecker from 'src/dialogs/UsageChecker.js';
+import ColorUtils from 'src/ColorUtils.js';
 
 /**
  * Exposes UI settings for the plugin.
@@ -194,6 +195,65 @@ export default class IconicSettingTab extends PluginSettingTab {
 				})
 			)
 		);
+
+		// SETTING: File type colours
+		let newFileTypeExtension = '';
+		let newFileTypeColor = 'green';
+		groupSidebarsAndTabs.addSetting(setting => setting
+			.setName(STRINGS.settings.fileTypeColors.name)
+			.setDesc(STRINGS.settings.fileTypeColors.desc)
+			.addText(text => text
+				.setPlaceholder(STRINGS.settings.fileTypeColors.extensionPlaceholder)
+				.onChange(value => {
+					newFileTypeExtension = value;
+				})
+			)
+			.addColorPicker(colorPicker => colorPicker
+				.setValueRgb(ColorUtils.toRgbObject(newFileTypeColor))
+				.onChange(value => {
+					newFileTypeColor = value;
+				})
+			)
+			.addButton(button => button
+				.setButtonText(STRINGS.settings.fileTypeColors.add)
+				.setCta()
+				.onClick(() => {
+					const extension = this.plugin.normalizeFileTypeExtension(newFileTypeExtension);
+					if (!extension) {
+						new Notice(STRINGS.settings.fileTypeColors.invalidExtension);
+						return;
+					}
+					this.plugin.settings.fileTypeColors[extension] = newFileTypeColor;
+					this.plugin.saveSettings();
+					this.plugin.refreshManagers('file');
+					this.display();
+				})
+			)
+		);
+
+		for (const [extension, color] of Object.entries(this.plugin.settings.fileTypeColors).sort()) {
+			groupSidebarsAndTabs.addSetting(setting => setting
+				.setName(`.${extension}`)
+				.addColorPicker(colorPicker => colorPicker
+					.setValueRgb(ColorUtils.toRgbObject(color))
+					.onChange(value => {
+						this.plugin.settings.fileTypeColors[extension] = value;
+						this.plugin.saveSettings();
+						this.plugin.refreshManagers('file');
+					})
+				)
+				.addExtraButton(button => button
+					.setIcon('lucide-trash-2')
+					.setTooltip(STRINGS.settings.fileTypeColors.remove)
+					.onClick(() => {
+						delete this.plugin.settings.fileTypeColors[extension];
+						this.plugin.saveSettings();
+						this.plugin.refreshManagers('file');
+						this.display();
+					})
+				)
+			);
+		}
 
 		// SETTING: Show all folder icons
 		groupSidebarsAndTabs.addSetting(setting => setting

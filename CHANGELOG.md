@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0
+
+- Raised the minimum app version to match the settings APIs inherited from Iconic.
+- Treated iWork package directories like `.pages`, `.numbers`, and `.key` as file items instead of folders.
+- Added configurable fallback colours for file-type default icons.
+- Kept file explorer folder open/closed icon handling limited to real folders.
+
 ## 1.2.0
 
 - Improved file-extension icon matching for icon packs with exact file-type icons.
