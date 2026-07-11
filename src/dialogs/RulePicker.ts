@@ -4,6 +4,7 @@ import { RuleItem } from 'src/managers/RuleManager.js';
 import IconManager from 'src/managers/IconManager.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 import RuleEditor from 'src/dialogs/RuleEditor.js';
+import { getCommandHotkeys } from 'src/HotkeyUtils.js';
 import RuleSetting from 'src/components/RuleSetting.js';
 
 /**
@@ -64,8 +65,7 @@ export default class RulePicker extends Modal {
 
 		// Allow hotkeys in dialog
 		for (const command of this.plugin.dialogCommands) if (command.callback) {
-			// @ts-expect-error (Private API)
-			const hotkeys: Hotkey[] = this.app.hotkeyManager?.customKeys?.[command.id] ?? [];
+			const hotkeys = getCommandHotkeys(this.app, command.id);
 			for (const hotkey of hotkeys) {
 				this.scope.register(hotkey.modifiers, hotkey.key, command.callback);
 			}

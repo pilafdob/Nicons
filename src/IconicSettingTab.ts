@@ -5,6 +5,11 @@ import UsageChecker from 'src/dialogs/UsageChecker.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 import ColorUtils from 'src/ColorUtils.js';
 
+interface InternalSettingsApp {
+	setting: { close(): void };
+	openWithDefaultApp(path: string): void;
+}
+
 /**
  * Exposes UI settings for the plugin.
  */
@@ -37,29 +42,35 @@ export default class IconicSettingTab extends PluginSettingTab {
 		const groupIconPack = new SettingGroup(this.containerEl)
 			.setHeading('Icon pack');
 
-		groupIconPack.addSetting(setting => setting
+		let selectedIconPackPath = this.plugin.settings.iconPackPath ?? '';
+		groupIconPack.addSetting(setting => void setting
 			.setName('Active icon pack')
-			.setDesc(this.plugin.settings.iconPackPath ?? 'Bundled Phosphor Icons')
+			.setDesc('Use a folder inside this vault, or leave blank for bundled phosphor icons.')
+			.addText(text => text
+				.setPlaceholder('Assets/icons')
+				.setValue(selectedIconPackPath)
+				.onChange(value => {
+					selectedIconPackPath = value;
+				})
+			)
 			.addButton(button => button
-				.setButtonText('Choose icon pack')
-				.onClick(async () => {
-					await this.plugin.chooseIconPack();
-					this.display();
+				.setButtonText('Load')
+				.onClick(() => {
+					void this.plugin.chooseIconPack(selectedIconPackPath).then(() => this.display());
 				})
 			)
 			.addExtraButton(button => button
 				.setIcon('lucide-rotate-ccw')
-				.setTooltip('Use bundled Phosphor Icons')
-				.onClick(async () => {
-					await this.plugin.useBundledIconPack();
-					this.display();
+				.setTooltip('Use bundled phosphor icons')
+				.onClick(() => {
+					void this.plugin.useBundledIconPack().then(() => this.display());
 				})
 			)
 		);
 
 		const variants = this.plugin.iconPack?.variants ?? [];
 		if (variants.length > 0) {
-			groupIconPack.addSetting(setting => setting
+			groupIconPack.addSetting(setting => void setting
 				.setName('Style')
 				.setDesc('Choose the active style for icon packs that include multiple variants.')
 				.addDropdown(dropdown => {
@@ -77,7 +88,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			);
 		}
 
-		groupIconPack.addSetting(setting => setting
+		groupIconPack.addSetting(setting => void setting
 			.setName('Icon pack size')
 			.setDesc('Scale selected pack icons relative to Obsidian icon sizes.')
 			.addSlider(slider => slider
@@ -96,7 +107,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		const groupTop = new SettingGroup(this.containerEl);
 
 		// SETTING: Rules
-		groupTop.addSetting(setting => setting
+		groupTop.addSetting(setting => void setting
 			.setName(STRINGS.settings.rulebook.name)
 			.setDesc(STRINGS.settings.rulebook.desc)
 			.addButton(button => { button
@@ -104,15 +115,15 @@ export default class IconicSettingTab extends PluginSettingTab {
 				.onClick(() => {
 					// Silently no-op if rulebook hasn't finished loading
 					if (!this.plugin.ruleManager) return;
-					// @ts-expect-error (Private API)
-					this.app.setting.close();
+					const internalApp = this.app as unknown as InternalSettingsApp;
+					internalApp.setting.close();
 					RulePicker.open(this.plugin);
 				});
 			})
 		);
 
 		// SETTING: Bigger icons
-		groupTop.addSetting(setting => setting
+		groupTop.addSetting(setting => void setting
 			.setName(STRINGS.settings.biggerIcons.name)
 			.setDesc(STRINGS.settings.biggerIcons.desc)
 			.addExtraButton(indicator => {
@@ -136,7 +147,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Clickable icons
-		groupTop.addSetting(setting => setting
+		groupTop.addSetting(setting => void setting
 			.setName(Platform.isDesktop
 				? STRINGS.settings.clickableIcons.nameDesktop
 				: STRINGS.settings.clickableIcons.nameMobile
@@ -171,7 +182,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.setHeading(STRINGS.settings.headingSidebarsAndTabs);
 
 		// SETTING: Show all file icons
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showAllFileIcons.name)
 			.setDesc(STRINGS.settings.showAllFileIcons.desc)
 			.addToggle(toggle => toggle
@@ -185,7 +196,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show file type icons
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showFileTypeIcons.name)
 			.setDesc(STRINGS.settings.showFileTypeIcons.desc)
 			.addToggle(toggle => toggle
@@ -201,7 +212,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		// SETTING: File type colours
 		let newFileTypeExtension = '';
 		let newFileTypeColor = 'green';
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.fileTypeColors.name)
 			.setDesc(STRINGS.settings.fileTypeColors.desc)
 			.addText(text => text
@@ -234,7 +245,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		for (const [extension, color] of Object.entries(this.plugin.settings.fileTypeColors).sort()) {
-			groupSidebarsAndTabs.addSetting(setting => setting
+			groupSidebarsAndTabs.addSetting(setting => void setting
 				.setName(`.${extension}`)
 				.addColorPicker(colorPicker => colorPicker
 					.setValueRgb(ColorUtils.toRgbObject(color))
@@ -259,7 +270,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 
 		// SETTING: Icon colours
 		groupSidebarsAndTabs.addSetting(setting => {
-			let previewButton: ExtraButtonComponent;
+			let previewButton: ExtraButtonComponent | undefined;
 			setting
 				.setName(STRINGS.settings.iconColors.name)
 				.setDesc(STRINGS.settings.iconColors.desc)
@@ -286,7 +297,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 					.setValueRgb(ColorUtils.toRgbObject(this.newIconColorColor))
 					.onChange(value => {
 						this.newIconColorColor = value;
-						if (previewButton) this.renderIconColorPreview(previewButton.extraSettingsEl, this.newIconColorIcon, value);
+						if (previewButton !== undefined) this.renderIconColorPreview(previewButton.extraSettingsEl, this.newIconColorIcon, value);
 					})
 				)
 				.addButton(button => button
@@ -309,7 +320,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 
 		for (const [icon, color] of Object.entries(this.plugin.settings.iconColors).sort((a, b) => this.getIconLabel(a[0]).localeCompare(this.getIconLabel(b[0])))) {
 			groupSidebarsAndTabs.addSetting(setting => {
-				let previewButton: ExtraButtonComponent;
+				let previewButton: ExtraButtonComponent | undefined;
 				setting
 					.setName(this.getIconLabel(icon))
 					.addExtraButton(button => {
@@ -333,7 +344,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 						.setValueRgb(ColorUtils.toRgbObject(color))
 						.onChange(value => {
 							this.plugin.settings.iconColors[icon] = value;
-							if (previewButton) this.renderIconColorPreview(previewButton.extraSettingsEl, icon, value);
+							if (previewButton !== undefined) this.renderIconColorPreview(previewButton.extraSettingsEl, icon, value);
 							void this.plugin.saveSettings();
 							this.plugin.refreshManagers();
 						})
@@ -352,7 +363,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		}
 
 		// SETTING: Show all folder icons
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showAllFolderIcons.name)
 			.setDesc(STRINGS.settings.showAllFolderIcons.desc)
 			.addToggle(toggle => toggle
@@ -366,7 +377,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Minimal folder icons
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.minimalFolderIcons.name)
 			.setDesc(STRINGS.settings.minimalFolderIcons.desc)
 			.addToggle(toggle => toggle
@@ -380,7 +391,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show Markdown tab icons
-		groupSidebarsAndTabs.addSetting(setting => setting
+		groupSidebarsAndTabs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showMarkdownTabIcons.name)
 			.setDesc(STRINGS.settings.showMarkdownTabIcons.desc)
 			.addToggle(toggle => toggle
@@ -398,7 +409,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.setHeading(STRINGS.settings.headingEditor);
 
 		// SETTING: Show title icons
-		groupEditor.addSetting(setting => setting
+		groupEditor.addSetting(setting => void setting
 			.setName(STRINGS.settings.showTitleIcons.name)
 			.setDesc(STRINGS.settings.showTitleIcons.desc)
 			.addToggle(toggle => toggle
@@ -412,7 +423,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show tag pill icons
-		groupEditor.addSetting(setting => setting
+		groupEditor.addSetting(setting => void setting
 			.setName(STRINGS.settings.showTagPillIcons.name)
 			.setDesc(STRINGS.settings.showTagPillIcons.desc)
 			.addToggle(toggle => toggle
@@ -430,7 +441,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.setHeading(STRINGS.settings.headingMenusAndDialogs);
 
 		// SETTING: Show menu actions
-		groupMenusAndDialogs.addSetting(setting => setting
+		groupMenusAndDialogs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showMenuActions.name)
 			.setDesc(STRINGS.settings.showMenuActions.desc)
 			.addToggle(toggle => toggle
@@ -444,7 +455,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show suggestion icons
-		groupMenusAndDialogs.addSetting(setting => setting
+		groupMenusAndDialogs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showSuggestionIcons.name)
 			.setDesc(STRINGS.settings.showSuggestionIcons.desc)
 			.addToggle(toggle => toggle
@@ -457,7 +468,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show quick switcher icons
-		groupMenusAndDialogs.addSetting(setting => setting
+		groupMenusAndDialogs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showQuickSwitcherIcons.name)
 			.setDesc(STRINGS.settings.showQuickSwitcherIcons.desc)
 			.addToggle(toggle => toggle
@@ -470,7 +481,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Show "Move file" dialog icons
-		groupMenusAndDialogs.addSetting(setting => setting
+		groupMenusAndDialogs.addSetting(setting => void setting
 			.setName(STRINGS.settings.showMoveFileIcons.name)
 			.setDesc(STRINGS.settings.showMoveFileIcons.desc)
 			.addToggle(toggle => toggle
@@ -487,7 +498,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.setHeading(STRINGS.settings.headingIconPicker);
 
 		// SETTING: Show item name
-		groupIconPicker.addSetting(setting => setting
+		groupIconPicker.addSetting(setting => void setting
 			.setName(STRINGS.settings.showItemName.name)
 			.setDesc(STRINGS.settings.showItemName.desc)
 			.addExtraButton(indicator => {
@@ -510,7 +521,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Bigger search results
-		groupIconPicker.addSetting(setting => setting
+		groupIconPicker.addSetting(setting => void setting
 			.setName(STRINGS.settings.biggerSearchResults.name)
 			.setDesc(STRINGS.settings.biggerSearchResults.desc)
 			.addExtraButton(indicator => {
@@ -534,7 +545,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Maximum search results
-		groupIconPicker.addSetting(setting => setting
+		groupIconPicker.addSetting(setting => void setting
 			.setName(STRINGS.settings.maxSearchResults.name)
 			.setDesc(STRINGS.settings.maxSearchResults.desc)
 			.addSlider(slider => slider
@@ -548,7 +559,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Main color picker
-		groupIconPicker.addSetting(setting => setting
+		groupIconPicker.addSetting(setting => void setting
 			.setName(STRINGS.settings.colorPicker1.name)
 			.setDesc(Platform.isDesktop
 				? STRINGS.settings.colorPicker1.descDesktop
@@ -572,7 +583,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Second color picker
-		groupIconPicker.addSetting(setting => setting
+		groupIconPicker.addSetting(setting => void setting
 			.setName(STRINGS.settings.colorPicker2.name)
 			.setDesc(Platform.isDesktop
 				? STRINGS.settings.colorPicker2.descDesktop
@@ -600,7 +611,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 			.setHeading(STRINGS.settings.headingAdvanced);
 
 		// SETTING: Colorless hover
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.uncolorHover.name)
 			.setDesc(STRINGS.settings.uncolorHover.desc)
 			.addToggle(toggle => toggle
@@ -614,7 +625,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Colorless drag
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.uncolorDrag.name)
 			.setDesc(STRINGS.settings.uncolorDrag.desc)
 			.addToggle(toggle => toggle
@@ -628,7 +639,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Colorless selection
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.uncolorSelect.name)
 			.setDesc(STRINGS.settings.uncolorSelect.desc)
 			.addToggle(toggle => toggle
@@ -642,7 +653,7 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: Colorless ribbon button
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.uncolorQuick.name)
 			.setDesc(STRINGS.settings.uncolorQuick.desc)
 			.addToggle(toggle => toggle
@@ -656,34 +667,38 @@ export default class IconicSettingTab extends PluginSettingTab {
 		);
 
 		// SETTING: View unused icons
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.viewUnusedIcons.name)
 			.setDesc(STRINGS.settings.viewUnusedIcons.desc)
 			.addButton(button => button
 				.setButtonText(STRINGS.settings.manage)
-				.onClick(async () => {
-					const unusedIcons: FileItem[] = [];
-					for (const fileId of Object.keys(this.plugin.settings.fileIcons)) {
-						if (!await this.app.vault.adapter.exists(fileId)) {
-							const file = this.plugin.getFileItem(fileId);
-							unusedIcons.push(file);
-						}
-					}
-					UsageChecker.open(this.plugin, unusedIcons);
-				})
+					.onClick(() => {
+						void (async () => {
+							const unusedIcons: FileItem[] = [];
+							for (const fileId of Object.keys(this.plugin.settings.fileIcons)) {
+								if (!await this.app.vault.adapter.exists(fileId)) {
+									const file = this.plugin.getFileItem(fileId);
+									unusedIcons.push(file);
+								}
+							}
+							UsageChecker.open(this.plugin, unusedIcons);
+						})();
+					})
 			)
 		);
 
 		// SETTING: Maximum automatic backups
-		groupAdvanced.addSetting(setting => setting
+		groupAdvanced.addSetting(setting => void setting
 			.setName(STRINGS.settings.maxBackups.name)
 			.setDesc(STRINGS.settings.maxBackups.desc)
 			.then(setting => {
 				if (Platform.isDesktop) setting.addExtraButton(button => button
 					.setIcon('lucide-folder-open')
 					.setTooltip(STRINGS.settings.maxBackups.openPluginFolder)
-					// @ts-expect-error (Private API)
-					.onClick(() => this.app.openWithDefaultApp(this.plugin.manifest.dir ?? ''))
+						.onClick(() => {
+							const internalApp = this.app as unknown as InternalSettingsApp;
+							internalApp.openWithDefaultApp(this.plugin.manifest.dir ?? '');
+						})
 				)
 			})
 			.addDropdown(dropdown => dropdown

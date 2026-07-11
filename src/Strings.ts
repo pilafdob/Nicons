@@ -449,39 +449,43 @@ export default class Strings {
 	}
 
 	static {
-		Strings.localize();
+		void Strings.localize();
 	}
 
 	/**
 	 * Dynamically import strings for the current language.
 	 */
 	private static async localize(): Promise<void> {
-		let localizedStrings: any;
+		let localizedStrings: Record<string, unknown>;
 		switch (getLanguage()) {
-			case 'ar': localizedStrings = await import('i18n/ar.json'); break;
-			case 'de': localizedStrings = await import('i18n/de.json'); break;
-			case 'en-GB': localizedStrings = await import('i18n/en-GB.json'); break;
-			case 'es': localizedStrings = await import('i18n/es.json'); break;
-			case 'fr': localizedStrings = await import('i18n/fr.json'); break;
-			case 'id': localizedStrings = await import('i18n/id.json'); break;
-			case 'ja': localizedStrings = await import('i18n/ja.json'); break;
-			case 'ru': localizedStrings = await import('i18n/ru.json'); break;
-			case 'uk': localizedStrings = await import('i18n/uk.json'); break;
-			case 'zh': localizedStrings = await import('i18n/zh.json'); break;
+			case 'ar': localizedStrings = (await import('i18n/ar.json')).default; break;
+			case 'de': localizedStrings = (await import('i18n/de.json')).default; break;
+			case 'en-GB': localizedStrings = (await import('i18n/en-GB.json')).default; break;
+			case 'es': localizedStrings = (await import('i18n/es.json')).default; break;
+			case 'fr': localizedStrings = (await import('i18n/fr.json')).default; break;
+			case 'id': localizedStrings = (await import('i18n/id.json')).default; break;
+			case 'ja': localizedStrings = (await import('i18n/ja.json')).default; break;
+			case 'ru': localizedStrings = (await import('i18n/ru.json')).default; break;
+			case 'uk': localizedStrings = (await import('i18n/uk.json')).default; break;
+			case 'zh': localizedStrings = (await import('i18n/zh.json')).default; break;
 			default: return;
 		}
-		this.localizeDefaultStrings(this, localizedStrings);
+		this.localizeDefaultStrings(this as unknown as Record<string, unknown>, localizedStrings);
 	}
 
 	/**
 	 * Replace default strings with localized strings.
 	 * Strings and their keys are always type-safe, even if the localized JSON is incomplete or broken.
 	 */
-	private static localizeDefaultStrings(defaultStrings: any, localizedStrings: any): void {
+	private static localizeDefaultStrings(defaultStrings: Record<string, unknown>, localizedStrings: Record<string, unknown>): void {
 		for (const [key, value] of Object.entries(localizedStrings)) {
-			if (typeof defaultStrings[key] === 'object') {
-				if (typeof value === 'object') {
-					this.localizeDefaultStrings(defaultStrings[key], value);
+			const defaultValue = defaultStrings[key];
+			if (defaultValue && typeof defaultValue === 'object' && !Array.isArray(defaultValue)) {
+				if (value && typeof value === 'object' && !Array.isArray(value)) {
+					this.localizeDefaultStrings(
+						defaultValue as Record<string, unknown>,
+						value as Record<string, unknown>,
+					);
 				}
 			} else if (typeof value === 'string') {
 				defaultStrings[key] = value;

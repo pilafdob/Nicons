@@ -9,8 +9,8 @@ import { PACK_ICONS } from 'src/IconPackService.js';
 export default abstract class IconManager {
 	protected readonly app: App;
 	protected readonly plugin: IconicPlugin;
-	private readonly eventListeners = new Map<string, Map<HTMLElement, {
-		listener: (this: HTMLElement, event: any) => any,
+	private readonly eventListeners = new Map<keyof HTMLElementEventMap, Map<HTMLElement, {
+		listener: EventListener,
 		options?: boolean | AddEventListenerOptions,
 	}>>();
 	private readonly mutationObservers = new Map<HTMLElement, MutationObserver>();
@@ -99,7 +99,7 @@ export default abstract class IconManager {
 	 * Set an event listener which will be removed when plugin unloads.
 	 * Replaces any listener (of the same element & type) set by this {@link IconManager}.
 	 */
-	protected setEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, type: K, listener: (this: HTMLElement, event: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void {
+	protected setEventListener<K extends keyof HTMLElementEventMap>(element: HTMLElement, type: K, listener: (this: HTMLElement, event: HTMLElementEventMap[K]) => void, options?: boolean | AddEventListenerOptions): void {
 		if (!this.eventListeners.has(type)) {
 			this.eventListeners.set(type, new Map());
 		}
@@ -109,7 +109,7 @@ export default abstract class IconManager {
 			element.removeEventListener(type, listener, options);
 		}
 		this.plugin.registerDomEvent(element, type, listener, options);
-		map.set(element, { listener, options });
+		map.set(element, { listener: listener as EventListener, options });
 	}
 
 	/**

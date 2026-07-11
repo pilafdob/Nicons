@@ -3,10 +3,15 @@ import IconicPlugin, { Category, Icon, Item, FileItem, STRINGS } from 'src/Iconi
 import { RuleItem, ConditionItem } from 'src/managers/RuleManager.js';
 import IconManager from 'src/managers/IconManager.js';
 import RuleChecker from 'src/dialogs/RuleChecker.js';
+import { getCommandHotkeys } from 'src/HotkeyUtils.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 import ConditionSetting from 'src/components/ConditionSetting.js';
 import ConditionValueSuggest from 'src/components/ConditionValueSuggest.js';
 import RuleNameSuggest from 'src/components/RuleNameSuggest.js';
+
+interface LoadingButton {
+	setLoading(loading: boolean): void;
+}
 
 export type OperatorValueType = 'text' | 'regex' | 'number' | 'datetime' | 'date' | 'time' | 'weekday' | 'month' | 'color' | 'hex';
 
@@ -488,8 +493,7 @@ export default class RuleEditor extends Modal {
 
 		// Allow hotkeys in dialog
 		for (const command of this.plugin.dialogCommands) if (command.callback) {
-			// @ts-expect-error (Private API)
-			const hotkeys: Hotkey[] = this.app.hotkeyManager?.customKeys?.[command.id] ?? [];
+			const hotkeys = getCommandHotkeys(this.app, command.id);
 			for (const hotkey of hotkeys) {
 				this.scope.register(hotkey.modifiers, hotkey.key, command.callback);
 			}
@@ -876,7 +880,7 @@ export default class RuleEditor extends Modal {
 		setting.valDropdown.selectEl.empty();
 		if (dropdownValues && dropdownLabels) {
 			for (const value of dropdownValues) {
-				const label = dropdownLabels[value as keyof typeof dropdownLabels];
+				const label = dropdownLabels[value];
 				setting.valDropdown.addOption(value.toString(), label ?? '');
 			}
 			if (dropdownValues.includes(setting.condition.value)) {
@@ -1028,12 +1032,12 @@ export default class RuleEditor extends Modal {
 	 */
 	private async updateMatchesButton(): Promise<void> {
 		const matchesButton = this.matchesButton;
-		if (!matchesButton) return;
+		if (matchesButton === null) return;
 
 		// Show a loading spinner if check takes longer than 100ms
 		const timeoutId = window.setTimeout(() => {
-			// @ts-expect-error (Private API)
-			matchesButton.setLoading(true);
+			const loadingButton = matchesButton as unknown as LoadingButton;
+			loadingButton.setLoading(true);
 			matchesButton.setDisabled(true);
 		}, 100);
 
@@ -1055,8 +1059,8 @@ export default class RuleEditor extends Modal {
 				break;
 			}
 		}
-		// @ts-expect-error (Private API)
-		matchesButton.setLoading(false);
+		const loadingButton = matchesButton as unknown as LoadingButton;
+		loadingButton.setLoading(false);
 		matchesButton.setDisabled(this.matches.length === 0);
 	}
 

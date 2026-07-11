@@ -109,6 +109,24 @@ export interface Icon {
 	icon: string | null;
 	color: string | null;
 }
+export interface IconSetting {
+	icon?: string;
+	color?: string;
+}
+export interface RuleConditionBase {
+	source?: string;
+	operator?: string;
+	value?: string;
+}
+export interface RuleBase {
+	id?: string;
+	name?: string;
+	icon?: string;
+	color?: string;
+	match?: 'all' | 'any' | 'none';
+	conditions?: RuleConditionBase[];
+	enabled?: boolean;
+}
 export interface Item extends Icon {
 	id: string;
 	name: string;
@@ -141,7 +159,7 @@ export interface RibbonItem extends Item {
 /**
  * Interface for storing plugin settings and user-selected icons.
  */
-interface IconicSettings {
+export interface IconicSettings {
 	iconPackPath: string | null;
 	iconPackName: string;
 	iconPackVariant: string;
@@ -174,41 +192,81 @@ interface IconicSettings {
 		emojiMode: boolean;
 		rulePage: Category;
 	},
-	appIcons: Record<string, { icon?: string, color?: string }>;
-	tabIcons: Record<string, { icon?: string, color?: string }>;
-	fileIcons: Record<string, { icon?: string, color?: string }>;
+	appIcons: Record<string, IconSetting>;
+	tabIcons: Record<string, IconSetting>;
+	fileIcons: Record<string, IconSetting>;
 	fileTypeColors: Record<string, string>;
 	iconColors: Record<string, string>;
-	bookmarkIcons: Record<string, { icon?: string, color?: string }>;
-	tagIcons: Record<string, { icon?: string, color?: string }>;
-	propertyIcons: Record<string, { icon?: string, color?: string }>;
-	ribbonIcons: Record<string, { icon?: string, color?: string }>;
-	fileRules: Array<{
-		id?: string,
-		name?: string,
-		icon?: string,
-		color?: string,
-		match?: string,
-		conditions?: Array<{
-			source?: string,
-			operator?: string,
-			value?: string,
-		}>,
-		enabled?: boolean,
-	}>;
-	folderRules: Array<{
-		id?: string,
-		name?: string,
-		icon?: string,
-		color?: string,
-		match?: string,
-		conditions?: Array<{
-			source?: string,
-			operator?: string,
-			value?: string,
-		}>,
-		enabled?: boolean,
-	}>;
+	bookmarkIcons: Record<string, IconSetting>;
+	tagIcons: Record<string, IconSetting>;
+	propertyIcons: Record<string, IconSetting>;
+	ribbonIcons: Record<string, IconSetting>;
+	fileRules: RuleBase[];
+	folderRules: RuleBase[];
+}
+
+type BookmarkCategory = 'file' | 'folder' | 'group' | 'search' | 'graph' | 'url';
+interface BookmarkBase {
+	type?: BookmarkCategory;
+	path?: string;
+	subpath?: string;
+	ctime?: string;
+	title?: string;
+	query?: string;
+	url?: string;
+	items?: BookmarkBase[];
+}
+interface TagBase {
+	id: string;
+	name: string;
+}
+interface PropertyBase {
+	name: string;
+	widget?: string;
+}
+interface RibbonBase {
+	id: string;
+	title?: string;
+	icon?: string;
+	hidden?: boolean;
+	buttonEl?: HTMLElement;
+}
+interface InternalApp {
+	internalPlugins?: {
+		plugins?: {
+			bookmarks?: { instance?: { items?: BookmarkBase[] } };
+		};
+	};
+	metadataTypeManager?: {
+		properties?: Record<string, PropertyBase>;
+		getWidget?: (widget: string) => { icon?: string } | undefined;
+	};
+	customCss?: { theme?: string };
+	plugins?: { plugins?: Record<string, unknown> };
+}
+interface InternalMetadataCache {
+	getTags(): Record<string, number>;
+}
+interface InternalWorkspace {
+	leftRibbon: { items?: RibbonBase[] };
+	leftSplit: {
+		activeTabContentEl?: HTMLElement;
+		activeTabIconEl?: HTMLElement;
+	};
+	rightSplit: {
+		activeTabContentEl?: HTMLElement;
+		activeTabIconEl?: HTMLElement;
+	};
+}
+interface InternalWorkspaceLeaf {
+	containerEl?: HTMLElement;
+	tabHeaderInnerIconEl?: HTMLElement;
+	tabHeaderEl?: HTMLElement;
+	parent?: { isStacked?: boolean };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 const DEFAULT_SETTINGS: IconicSettings = {
@@ -557,31 +615,34 @@ export default class IconicPlugin extends Plugin {
 	 */
 	async loadIconPack(): Promise<void> {
 		if (!this.settings.iconPackPath) {
-			this.applyIconPack(loadBundledPhosphor(this.settings.iconPackVariant), 'Phosphor Icons');
+			this.applyIconPack(await loadBundledPhosphor(this.settings.iconPackVariant), 'Phosphor Icons');
 			return;
 		}
 
 		try {
-			const iconPack = await scanIconPack(this.settings.iconPackPath, this.settings.iconPackVariant);
+			const iconPack = await scanIconPack(this.app.vault.adapter, this.settings.iconPackPath, this.settings.iconPackVariant);
 			this.applyIconPack(iconPack);
 		} catch (error) {
 			console.error('Nicons failed to load icon pack', error);
-			new Notice('Nicons could not load the selected icon pack. Falling back to bundled Phosphor Icons.');
+			new Notice('Nicons could not load the selected icon pack. Falling back to bundled phosphor icons.');
 			this.settings.iconPackPath = null;
-			this.applyIconPack(loadBundledPhosphor('regular'), 'Phosphor Icons');
+			this.applyIconPack(await loadBundledPhosphor('regular'), 'Phosphor Icons');
 		}
 	}
 
 	/**
-	 * Open the native folder picker and switch to the selected SVG icon pack.
+	 * Switch to an SVG icon pack stored in a vault-relative folder.
 	 */
-	async chooseIconPack(): Promise<void> {
-		const folderPath = await this.pickIconPackFolder();
-		if (!folderPath) return;
+	async chooseIconPack(folderPath: string): Promise<void> {
+		const normalizedFolderPath = normalizePath(folderPath.trim().replace(/^\/+/, ''));
+		if (!normalizedFolderPath) {
+			new Notice('Enter a vault-relative icon pack folder.');
+			return;
+		}
 
 		const previousPath = this.settings.iconPackPath;
 		const previousVariant = this.settings.iconPackVariant;
-		this.settings.iconPackPath = folderPath;
+		this.settings.iconPackPath = normalizedFolderPath;
 		try {
 			await this.loadIconPack();
 			await this.saveSettings();
@@ -747,29 +808,11 @@ export default class IconicPlugin extends Plugin {
 			.forEach(icon => ICONS.set(icon.id, icon.name));
 	}
 
-	private async pickIconPackFolder(): Promise<string | null> {
-		const electron = require('electron') as any;
-		const dialog = electron.remote?.dialog ?? electron.dialog;
-		const getCurrentWindow = electron.remote?.getCurrentWindow;
-		if (!dialog?.showOpenDialog) {
-			new Notice('Nicons could not open the system file picker.');
-			return null;
-		}
-
-		const result = await dialog.showOpenDialog(getCurrentWindow?.(), {
-			title: 'Choose icon pack',
-			properties: ['openDirectory'],
-		});
-
-		if (result.canceled) return null;
-		return result.filePaths?.[0] ?? null;
-	}
-
 	private createSafeSvgElement(containerEl: HTMLElement, svgText: string): SVGSVGElement | null {
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(svgText, 'image/svg+xml');
 		const svgEl = doc.documentElement;
-		if (svgEl.nodeName.toLowerCase() !== 'svg') return null;
+		if (svgEl.nodeName.toLowerCase() !== 'svg' || !svgEl.instanceOf(SVGSVGElement)) return null;
 
 		for (const element of Array.from(svgEl.querySelectorAll('script,foreignObject,iframe,object,embed,link,style'))) {
 			element.remove();
@@ -785,7 +828,7 @@ export default class IconicPlugin extends Plugin {
 			}
 		}
 
-			const importedSvg = containerEl.ownerDocument.importNode(svgEl, true) as unknown as SVGSVGElement;
+		const importedSvg = containerEl.ownerDocument.importNode(svgEl, true);
 		importedSvg.addClasses(['svg-icon', 'nicons-pack-icon']);
 		importedSvg.setAttribute('aria-hidden', 'true');
 		importedSvg.setAttribute('focusable', 'false');
@@ -795,7 +838,7 @@ export default class IconicPlugin extends Plugin {
 	/**
 	 * @override
 	 */
-	async onExternalSettingsChange(): Promise<any> {
+	async onExternalSettingsChange(): Promise<void> {
 		await this.loadSettings();
 		await this.loadIconPack();
 		this.refreshManagers();
@@ -880,9 +923,9 @@ export default class IconicPlugin extends Plugin {
 		// Check all open windows
 		const bodyEls = new Set<HTMLElement>();
 		this.app.workspace.iterateAllLeaves(leaf => {
-			// @ts-expect-error (Private API)
-			const bodyEl = leaf?.containerEl?.doc?.body;
-			if (bodyEl.instanceOf(HTMLElement)) bodyEls.add(bodyEl);
+			const internalLeaf = leaf as unknown as InternalWorkspaceLeaf;
+			const bodyEl = internalLeaf.containerEl?.doc.body;
+			if (bodyEl?.instanceOf(HTMLElement)) bodyEls.add(bodyEl);
 		});
 
 		// Refresh classes and theme attribute
@@ -900,8 +943,8 @@ export default class IconicPlugin extends Plugin {
 				bodyEl.style.setProperty('--nicons-icon-scale', (this.settings.iconPackSize / 100).toString());
 			}
 
-			// @ts-expect-error (Private API)
-			const theme = this.app.customCss?.theme;
+			const internalApp = this.app as unknown as InternalApp;
+			const theme = internalApp.customCss?.theme;
 			if (theme) {
 				bodyEl.setAttr('data-theme', theme);
 			} else {
@@ -922,8 +965,8 @@ export default class IconicPlugin extends Plugin {
 	 * Check whether a community plugin is installed and enabled.
 	 */
 	isPluginEnabled(pluginId: string): boolean {
-		// @ts-expect-error (Private API)
-		return this.app.plugins?.plugins?.hasOwnProperty(pluginId) === true;
+		const internalApp = this.app as unknown as InternalApp;
+		return Object.prototype.hasOwnProperty.call(internalApp.plugins?.plugins ?? {}, pluginId);
 	}
 
 	/**
@@ -1003,27 +1046,22 @@ export default class IconicPlugin extends Plugin {
 	 * Create tab definition.
 	 */
 	private defineTabItem(leaf: WorkspaceLeaf, unloading?: boolean): TabItem {
-		// @ts-expect-error (Private API)
-		let iconEl: HTMLElement | null = leaf.tabHeaderInnerIconEl;
+		const internalLeaf = leaf as unknown as InternalWorkspaceLeaf;
+		const workspace = this.app.workspace as unknown as InternalWorkspace;
+		let iconEl: HTMLElement | null = internalLeaf.tabHeaderInnerIconEl ?? null;
 		if (Platform.isMobile) {
-			// @ts-expect-error (Private API)
-			if (leaf.containerEl?.parentElement === this.app.workspace.leftSplit.activeTabContentEl) {
-				// @ts-expect-error (Private API)
-				iconEl = this.app.workspace.leftSplit.activeTabIconEl;
-				// @ts-expect-error (Private API)
-			} else if (leaf.containerEl?.parentElement === this.app.workspace.rightSplit.activeTabContentEl) {
-				// @ts-expect-error (Private API)
-				iconEl = this.app.workspace.rightSplit.activeTabIconEl;
+			if (internalLeaf.containerEl?.parentElement === workspace.leftSplit.activeTabContentEl) {
+				iconEl = workspace.leftSplit.activeTabIconEl ?? null;
+			} else if (internalLeaf.containerEl?.parentElement === workspace.rightSplit.activeTabContentEl) {
+				iconEl = workspace.rightSplit.activeTabIconEl ?? null;
 			}
 		}
 
 		const tabType = leaf.view.getViewType();
-		// @ts-expect-error (Private API)
-		const isActive = leaf.view === this.app.workspace.getActiveViewOfType(View) || leaf.tabHeaderEl?.hasClass('is-active');
+		const isActive = leaf.view === this.app.workspace.getActiveViewOfType(View) || internalLeaf.tabHeaderEl?.hasClass('is-active') === true;
 		const isRoot = leaf.getRoot() instanceof WorkspaceRoot || leaf.getRoot() instanceof WorkspaceFloating;
 
-		// @ts-expect-error (Private API)
-		const isStacked = leaf.parent?.isStacked === true;
+		const isStacked = internalLeaf.parent?.isStacked === true;
 		const filePath = leaf.view.getState().file; // Used because view.file is undefined on deferred views
 
 		if (filePath && !PLUGIN_TAB_TYPES.includes(tabType)) {
@@ -1040,8 +1078,7 @@ export default class IconicPlugin extends Plugin {
 				isRoot: isRoot,
 				isStacked: isStacked,
 				iconEl: iconEl ?? null,
-				// @ts-expect-error (Private API)
-				tabEl: leaf.tabHeaderEl ?? null,
+				tabEl: internalLeaf.tabHeaderEl ?? null,
 			}
 		} else {
 			const tabIcon = this.settings.tabIcons[tabType] ?? {};
@@ -1063,8 +1100,7 @@ export default class IconicPlugin extends Plugin {
 				isRoot: isRoot,
 				isStacked: isStacked,
 				iconEl: iconEl ?? null,
-				// @ts-expect-error (Private API)
-				tabEl: leaf.tabHeaderEl ?? null,
+				tabEl: internalLeaf.tabHeaderEl ?? null,
 			}
 		}
 	}
@@ -1153,8 +1189,8 @@ export default class IconicPlugin extends Plugin {
 	 * Get array of bookmark definitions.
 	 */
 	getBookmarkItems(unloading?: boolean): BookmarkItem[] {
-		// @ts-expect-error (Private API)
-		const bmarkBases: any[] = this.app.internalPlugins?.plugins?.bookmarks?.instance?.items ?? [];
+		const internalApp = this.app as unknown as InternalApp;
+		const bmarkBases = internalApp.internalPlugins?.plugins?.bookmarks?.instance?.items ?? [];
 		return bmarkBases.map(bmarkBase => this.defineBookmarkItem(bmarkBase, unloading));
 	}
 
@@ -1162,8 +1198,8 @@ export default class IconicPlugin extends Plugin {
 	 * Get bookmark definition.
 	 */
 	getBookmarkItem(bmarkId: string, bmarkCategory: Category, unloading?: boolean): BookmarkItem {
-		// @ts-expect-error (Private API)
-		const bmarkBases = this.flattenBookmarks(this.app.internalPlugins?.plugins?.bookmarks?.instance?.items ?? []);
+		const internalApp = this.app as unknown as InternalApp;
+		const bmarkBases = this.flattenBookmarks(internalApp.internalPlugins?.plugins?.bookmarks?.instance?.items ?? []);
 		const bmarkBase = bmarkBases.find(bmarkBase => {
 			switch (bmarkCategory) {
 				case 'file': // Fallthrough
@@ -1177,10 +1213,13 @@ export default class IconicPlugin extends Plugin {
 	/**
 	 * Create bookmark definition.
 	 */
-	private defineBookmarkItem(bmarkBase: any, unloading?: boolean): BookmarkItem {
-		const { path, filename, basename, extension } = this.splitFilePath(bmarkBase.path);
+	private defineBookmarkItem(bmarkBase: BookmarkBase, unloading?: boolean): BookmarkItem {
+		const { path, filename, basename, extension } = this.splitFilePath(bmarkBase.path ?? '');
 		const subpath = bmarkBase.subpath ?? '';
-		let id, name, bmarkIcon, iconDefault = null;
+		let id = '';
+		let name = '';
+		let bmarkIcon: IconSetting = {};
+		let iconDefault: string | null = null;
 
 		switch (bmarkBase.type) {
 			case 'file': {
@@ -1206,8 +1245,8 @@ export default class IconicPlugin extends Plugin {
 				break;
 			}
 			case 'group': {
-				id = bmarkBase.ctime;
-				name = bmarkBase.title;
+				id = bmarkBase.ctime ?? '';
+				name = bmarkBase.title ?? '';
 				bmarkIcon = this.settings.bookmarkIcons[id] ?? {};
 				if (bmarkIcon.color && !this.settings.minimalFolderIcons || this.settings.showAllFolderIcons) {
 					iconDefault = this.getFolderDefaultIcon(false);
@@ -1215,22 +1254,22 @@ export default class IconicPlugin extends Plugin {
 				break;
 			}
 			case 'search': {
-				id = bmarkBase.ctime;
-				name = bmarkBase.query;
+				id = bmarkBase.ctime ?? '';
+				name = bmarkBase.query ?? '';
 				bmarkIcon = this.settings.bookmarkIcons[id] ?? {};
 				iconDefault = 'lucide-search';
 				break;
 			}
 			case 'graph': {
-				id = bmarkBase.ctime;
-				name = bmarkBase.title;
+				id = bmarkBase.ctime ?? '';
+				name = bmarkBase.title ?? '';
 				bmarkIcon = this.settings.bookmarkIcons[id] ?? {};
 				iconDefault = 'lucide-git-fork';
 				break;
 			}
 			case 'url': {
-				id = bmarkBase.ctime;
-				name = bmarkBase.url;
+				id = bmarkBase.ctime ?? '';
+				name = bmarkBase.url ?? '';
 				bmarkIcon = this.settings.bookmarkIcons[id] ?? {};
 				iconDefault = 'lucide-globe-2';
 				break;
@@ -1243,15 +1282,15 @@ export default class IconicPlugin extends Plugin {
 			iconDefault: iconDefault,
 			icon: unloading ? null : bmarkIcon?.icon ?? null,
 			color: unloading ? null : bmarkIcon?.color ?? (bmarkIcon?.icon ? null : this.getFileTypeDefaultColor(extension)),
-			items: bmarkBase.items?.map((bmark: any) => this.defineBookmarkItem(bmark, unloading)) ?? null,
+			items: bmarkBase.items?.map(bmark => this.defineBookmarkItem(bmark, unloading)) ?? null,
 		}
 	}
 
 	/**
 	 * Flatten an array of bookmark bases to include all children.
 	 */
-	private flattenBookmarks(bmarkBases: any[]): any[] {
-		const flatArray = [];
+	private flattenBookmarks(bmarkBases: BookmarkBase[]): BookmarkBase[] {
+		const flatArray: BookmarkBase[] = [];
 		for (const bmarkBase of bmarkBases) {
 			flatArray.push(bmarkBase);
 			if (bmarkBase.items) flatArray.push(...this.flattenBookmarks(bmarkBase.items));
@@ -1263,8 +1302,8 @@ export default class IconicPlugin extends Plugin {
 	 * Get array of tag definitions.
 	 */
 	getTagItems(unloading?: boolean): TagItem[] {
-		// @ts-expect-error (Private API)
-		const tagHashes: string[] = Object.keys(this.app.metadataCache.getTags()) ?? [];
+		const metadataCache = this.app.metadataCache as unknown as InternalMetadataCache;
+		const tagHashes = Object.keys(metadataCache.getTags());
 		const tagBases = tagHashes.map(tagHash => {
 			return {
 				id: tagHash.replace('#', ''),
@@ -1279,8 +1318,8 @@ export default class IconicPlugin extends Plugin {
 	 */
 	getTagItem(tagId: string, unloading?: boolean): TagItem | null {
 		const tagHash = '#' + tagId;
-		// @ts-expect-error (Private API)
-		const tagHashes: string[] = Object.keys(this.app.metadataCache.getTags()) ?? [];
+		const metadataCache = this.app.metadataCache as unknown as InternalMetadataCache;
+		const tagHashes = Object.keys(metadataCache.getTags());
 		return tagHashes.includes(tagHash)
 			? this.defineTagItem({
 				id: tagId,
@@ -1291,7 +1330,7 @@ export default class IconicPlugin extends Plugin {
 	/**
 	 * Create tag definition.
 	 */
-	private defineTagItem(tagBase: any, unloading?: boolean): TagItem {
+	private defineTagItem(tagBase: TagBase, unloading?: boolean): TagItem {
 		const tagIcon = this.settings.tagIcons[tagBase.id] ?? {};
 
 		return {
@@ -1308,8 +1347,8 @@ export default class IconicPlugin extends Plugin {
 	 * Get array of property definitions.
 	 */
 	getPropertyItems(unloading?: boolean): PropertyItem[] {
-		// @ts-expect-error (Private API)
-		const propBases: any[] = Object.values(this.app.metadataTypeManager?.properties) ?? [];
+		const internalApp = this.app as unknown as InternalApp;
+		const propBases = Object.values(internalApp.metadataTypeManager?.properties ?? {});
 		return propBases.map(propBase => this.definePropertyItem(propBase, unloading));
 	}
 
@@ -1318,19 +1357,19 @@ export default class IconicPlugin extends Plugin {
 	 * @param propId Case-insensitive
 	 */
 	getPropertyItem(propId: string, unloading?: boolean): PropertyItem {
-		// @ts-expect-error (Private API)
-		const propBases: any[] = Object.values(this.app.metadataTypeManager?.properties) ?? [];
-		const propBase = propBases.find(propBase => propBase.name.toLowerCase() === propId.toLowerCase()) ?? {};
+		const internalApp = this.app as unknown as InternalApp;
+		const propBases = Object.values(internalApp.metadataTypeManager?.properties ?? {});
+		const propBase = propBases.find(propBase => propBase.name.toLowerCase() === propId.toLowerCase()) ?? { name: propId };
 		return this.definePropertyItem(propBase, unloading);
 	}
 
 	/**
 	 * Create property definition.
 	 */
-	private definePropertyItem(propBase: any, unloading?: boolean): PropertyItem {
+	private definePropertyItem(propBase: PropertyBase, unloading?: boolean): PropertyItem {
 		const propIcon = this.settings.propertyIcons[propBase.name] ?? {};
-		// @ts-expect-error (Private API)
-		const widget = this.app.metadataTypeManager?.getWidget?.(propBase.widget ?? '');
+		const internalApp = this.app as unknown as InternalApp;
+		const widget = internalApp.metadataTypeManager?.getWidget?.(propBase.widget ?? '');
 		const iconDefault = widget?.icon ?? 'lucide-file-question';
 
 		return {
@@ -1348,8 +1387,8 @@ export default class IconicPlugin extends Plugin {
 	 * Get array of ribbon command definitions.
 	 */
 	getRibbonItems(unloading?: boolean): RibbonItem[] {
-		// @ts-expect-error (Private API)
-		const itemBases: any[] = this.app.workspace.leftRibbon.items ?? [];
+		const workspace = this.app.workspace as unknown as InternalWorkspace;
+		const itemBases = workspace.leftRibbon.items ?? [];
 		return itemBases.map(item => this.defineRibbonItem(item, unloading));
 	}
 
@@ -1357,20 +1396,20 @@ export default class IconicPlugin extends Plugin {
 	 * Get ribbon command definition.
 	 */
 	getRibbonItem(itemId: string, unloading?: boolean): RibbonItem {
-		// @ts-expect-error (Private API)
-		const itemBase: any = this.app.workspace.leftRibbon.items
-			?.find((itemBase: any) => itemBase?.id === itemId) ?? {};
+		const workspace = this.app.workspace as unknown as InternalWorkspace;
+		const itemBase = workspace.leftRibbon.items
+			?.find(itemBase => itemBase.id === itemId) ?? { id: itemId };
 		return this.defineRibbonItem(itemBase, unloading);
 	}
 
 	/**
 	 * Create ribbon command definition.
 	 */
-	private defineRibbonItem(itemBase: any, unloading?: boolean): RibbonItem {
+	private defineRibbonItem(itemBase: RibbonBase, unloading?: boolean): RibbonItem {
 		const itemIcon = this.settings.ribbonIcons[itemBase.id] ?? {};
 		return {
 			id: itemBase.id,
-			name: itemBase.title ?? null,
+			name: itemBase.title ?? itemBase.id,
 			category: 'ribbon',
 			iconDefault: itemBase.icon ?? null,
 			icon: unloading ? null : itemIcon.icon ?? null,
@@ -1519,7 +1558,7 @@ export default class IconicPlugin extends Plugin {
 	/**
 	 * Update icon in a given settings object.
 	 */
-	private updateIconSetting(settings: any, itemId: string, icon: string | null, color: string | null): void {
+	private updateIconSetting(settings: Record<string, IconSetting>, itemId: string, icon: string | null, color: string | null): void {
 		if (icon || color) {
 			if (!settings[itemId]) settings[itemId] = {};
 
@@ -1547,7 +1586,10 @@ export default class IconicPlugin extends Plugin {
 			// Try to read `data.json`
 			if (await adapter.exists(dataPath)) {
 				const dataJson = await adapter.read(dataPath);
-				try { dataObject = JSON.parse(dataJson) } catch { /* Ignore */ }
+				try {
+					const parsedData: unknown = JSON.parse(dataJson);
+					if (isRecord(parsedData)) dataObject = parsedData;
+				} catch { /* Ignore */ }
 			}
 
 			// If `data.json` is missing or corrupted, restore the backup
@@ -1557,7 +1599,10 @@ export default class IconicPlugin extends Plugin {
 		}
 
 		// Load `data.json`
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loadedData: unknown = await this.loadData();
+		this.settings = isRecord(loadedData)
+			? { ...DEFAULT_SETTINGS, ...loadedData }
+			: { ...DEFAULT_SETTINGS };
 	}
 
 	/**

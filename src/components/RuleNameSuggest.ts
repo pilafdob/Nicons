@@ -1,10 +1,15 @@
 import { AbstractInputSuggest, TextComponent, prepareFuzzySearch } from 'obsidian';
 import IconicPlugin, { Category } from 'src/IconicPlugin.js';
 
+interface RuleNameSuggestion {
+	text: string;
+	score: number;
+}
+
 /**
  * Popover that suggests names for a rule.
  */
-export default class RuleNameSuggest extends AbstractInputSuggest<any> {
+export default class RuleNameSuggest extends AbstractInputSuggest<RuleNameSuggestion> {
 	private readonly plugin: IconicPlugin;
 	private readonly page: Category;
 	private readonly inputComponent: TextComponent;
@@ -16,51 +21,26 @@ export default class RuleNameSuggest extends AbstractInputSuggest<any> {
 		this.inputComponent = inputComponent;
 	}
 
-	/**
-	 * @override
-	 */
-	protected getSuggestions(query: string): any[] | Promise<any[]> {
+	protected getSuggestions(query: string): RuleNameSuggestion[] {
 		const currentName = this.inputComponent.getValue();
-		const suggestions: any[] = [];
 		const fuzzySearch = prepareFuzzySearch(query);
-		const rules = this.plugin.ruleManager!.getRules(this.page);
-		const names = new Set(rules.map(rule => rule.name));
+		const names = new Set((this.plugin.ruleManager?.getRules(this.page) ?? []).map(rule => rule.name));
+		const suggestions: RuleNameSuggestion[] = [];
 
 		for (const name of names) {
-			// Skip suggestions that already match the current name
 			if (name === currentName) continue;
 			const result = fuzzySearch(name);
-			if (result) suggestions.push({
-				type: 'rule',
-				matches: result.matches,
-				score: result.score,
-				text: name,
-			});
+			if (result) suggestions.push({ text: name, score: result.score });
 		}
 
-		// Sort by relevance, or else alphabetically
-		suggestions.sort((a, b) => {
-			if (a.score !== b.score) {
-				return b.score - a.score; // Descending
-			} else {
-				return a.text.localeCompare(b.text); // Ascending
-			}
-		});
-
-		return suggestions;
+		return suggestions.sort((a, b) => b.score - a.score || a.text.localeCompare(b.text));
 	}
 
-	/**
-	 * @override
-	 */
-	renderSuggestion(suggestion: any, el: HTMLElement): void {
+	renderSuggestion(suggestion: RuleNameSuggestion, el: HTMLElement): void {
 		el.setText(suggestion.text);
 	}
 
-	/**
-	 * @override
-	 */
-	selectSuggestion(suggestion: any): void {
+	selectSuggestion(suggestion: RuleNameSuggestion): void {
 		this.inputComponent.setValue(suggestion.text);
 		this.inputComponent.onChanged();
 		this.close();

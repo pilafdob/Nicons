@@ -2,6 +2,7 @@ import { ButtonComponent, Modal, Setting } from 'obsidian';
 import IconicPlugin, { Category, FileItem, STRINGS } from 'src/IconicPlugin.js';
 import PathListComponent from 'src/components/PathListComponent.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
+import { getCommandHotkeys } from 'src/HotkeyUtils.js';
 
 /**
  * Dialog for previewing the items matched by a rule.
@@ -19,8 +20,7 @@ export default class RuleChecker extends Modal {
 
 		// Allow hotkeys in dialog
 		for (const command of this.plugin.dialogCommands) if (command.callback) {
-			// @ts-expect-error (Private API)
-			const hotkeys: Hotkey[] = this.app.hotkeyManager?.customKeys?.[command.id] ?? [];
+			const hotkeys = getCommandHotkeys(this.app, command.id);
 			for (const hotkey of hotkeys) {
 				this.scope.register(hotkey.modifiers, hotkey.key, command.callback);
 			}

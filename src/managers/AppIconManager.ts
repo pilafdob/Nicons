@@ -4,6 +4,14 @@ import ColorUtils from 'src/ColorUtils.js';
 import IconManager from 'src/managers/IconManager.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 
+interface InternalElectronWindow {
+	electron?: {
+		remote?: {
+			getCurrentWindow(): { isMaximized(): boolean };
+		};
+	};
+}
+
 const SVG_INFO = { attr: { 'aria-hidden': false, width: 12, height: 12, viewBox: '0 0 12 12' } };
 const MINIMIZE_RECT = { attr: { fill: 'currentColor', width: 10, height: 1, x: 1, y: 6 } };
 const MAXIMIZE_RECT = { attr: { width: 9, height: 9, x: 1.5, y: 1.5, fill: 'none', stroke: 'currentColor' } };
@@ -200,8 +208,8 @@ export default class AppIconManager extends IconManager {
 	 * Refresh maximize icon only. This button can have two states: maximized or unmaximized.
 	 */
 	private refreshMaximizeIcon(unloading?: boolean): void {
-		// @ts-expect-error (Electron API)
-		const isMaximized = activeWindow.electron.remote.getCurrentWindow().isMaximized() ?? true;
+		const internalWindow = activeWindow as unknown as InternalElectronWindow;
+		const isMaximized = internalWindow.electron?.remote?.getCurrentWindow().isMaximized() ?? true;
 
 		this.stopMutationObserver(this.maximizeEl);
 		if (!activeDocument.contains(this.maximizeEl)) {

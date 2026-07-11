@@ -1,5 +1,13 @@
 import { Menu, MenuItem, MenuPositionDef } from 'obsidian';
 
+interface InternalMenuItem {
+	section: string;
+}
+interface InternalMenu {
+	sections: string[];
+	items: MenuItem[];
+}
+
 /**
  * Intercepts context menus to add custom items.
  */
@@ -11,7 +19,7 @@ export default class MenuManager {
 
 	constructor() {
 		// Store original method
-		this.showAtPositionOriginal = Reflect.get(Menu.prototype, 'showAtPosition') as typeof Menu.prototype.showAtPosition;
+		this.showAtPositionOriginal = Reflect.get(Menu.prototype, 'showAtPosition');
 
 		// Catch menus as they open
 		this.showAtPositionProxy = new Proxy(this.showAtPositionOriginal, {
@@ -58,10 +66,10 @@ export default class MenuManager {
 
 			this.menu.addItem(item => {
 				callback(item);
-				// @ts-expect-error (Private API)
-				const section: string = item.section;
-				// @ts-expect-error (Private API)
-				const sections: string[] = this.menu?.sections ?? [];
+				const internalItem = item as unknown as InternalMenuItem;
+				const internalMenu = this.menu as unknown as InternalMenu;
+				const section = internalItem.section;
+				const sections = internalMenu.sections;
 
 				let index = 0;
 				for (const preSection of preSections) {
@@ -96,8 +104,10 @@ export default class MenuManager {
 	 */
 	forSection(section: string, callback: (item: MenuItem, index: number) => void): this {
 		if (this.menu) {
-			// @ts-expect-error (Private API)
-			const items = (this.menu.items as MenuItem[]).filter(item => item.section === section);
+			const internalMenu = this.menu as unknown as InternalMenu;
+			const items = internalMenu.items.filter(item =>
+				(item as unknown as InternalMenuItem).section === section
+			);
 			items.forEach((item, i) => callback(item, i));
 		} else {
 			this.queuedActions.push(() => this.forSection(section, callback));

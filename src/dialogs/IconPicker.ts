@@ -1,4 +1,4 @@
-import { ButtonComponent, ColorComponent, ExtraButtonComponent, Hotkey, Menu, Modal, Platform, Setting, TextComponent, displayTooltip, setTooltip } from 'obsidian';
+import { ButtonComponent, ColorComponent, ExtraButtonComponent, Menu, Modal, Platform, Setting, TextComponent, displayTooltip, setTooltip } from 'obsidian';
 import IconicPlugin, { Category, Item, Icon, ICONS, EMOJIS, STRINGS } from 'src/IconicPlugin.js';
 import ColorUtils, { COLORS } from 'src/ColorUtils.js';
 import { RuleItem } from 'src/managers/RuleManager.js';
@@ -6,6 +6,7 @@ import IconManager from 'src/managers/IconManager.js';
 import RuleEditor from 'src/dialogs/RuleEditor.js';
 import { PACK_ICONS } from 'src/IconPackService.js';
 import { SEARCH_ALIASES, normalizeSearchTerm } from 'src/IconSearchAliases.js';
+import { getCommandHotkeys } from 'src/HotkeyUtils.js';
 
 const COLOR_KEYS = [...COLORS.keys()];
 
@@ -118,8 +119,7 @@ export default class IconPicker extends Modal {
 
 		// Allow hotkeys in dialog
 		for (const command of this.plugin.dialogCommands) if (command.callback) {
-			// @ts-expect-error (Private API)
-			const hotkeys: Hotkey[] = this.app.hotkeyManager?.customKeys?.[command.id] ?? [];
+			const hotkeys = getCommandHotkeys(this.app, command.id);
 			for (const hotkey of hotkeys) {
 				this.scope.register(hotkey.modifiers, hotkey.key, command.callback);
 			}
@@ -490,8 +490,8 @@ export default class IconPicker extends Modal {
 					this.updateColorPicker();
 					this.updateSearchResults();
 				});
-				// @ts-expect-error (Private API)
-				this.iconManager.refreshIcon({ icon: 'lucide-paint-bucket', color }, menuItem.iconEl);
+					const internalItem = menuItem as unknown as { iconEl: HTMLElement };
+					this.iconManager.refreshIcon({ icon: 'lucide-paint-bucket', color }, internalItem.iconEl);
 			});
 		}
 		menu.showAtPosition({ x, y });

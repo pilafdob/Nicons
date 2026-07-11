@@ -2,12 +2,39 @@ import { Instruction, Plugin, SuggestModal, TFile, TFolder, WorkspaceLeaf } from
 import IconicPlugin, { PLUGIN_TAB_TYPES } from 'src/IconicPlugin.js';
 import IconManager from 'src/managers/IconManager.js';
 
-type PluginModal = SuggestModal<any> & { plugin: Plugin };
+type PluginModal = SuggestModal<unknown> & { plugin: Plugin };
+
+interface SuggestionValue {
+	type?: string;
+	file?: unknown;
+	item?: unknown;
+	text?: string;
+	name?: string;
+	tag?: string;
+	widget?: unknown;
+}
+
+interface BookmarkSuggestion {
+	type?: string;
+	path?: string;
+}
+
+function getSuggestionValue(value: unknown): SuggestionValue | null {
+	return value !== null && typeof value === 'object'
+		? value
+		: null;
+}
+
+function getBookmarkSuggestion(value: unknown): BookmarkSuggestion | null {
+	return value !== null && typeof value === 'object'
+		? value
+		: null;
+}
 
 /**
  * Allow type-safe access to a modal.plugin property.
  */
-function isPluginModal(modal: SuggestModal<any>): modal is PluginModal {
+function isPluginModal(modal: SuggestModal<unknown>): modal is PluginModal {
 	return (modal as PluginModal).plugin instanceof Plugin;
 }
 
@@ -15,107 +42,90 @@ const QUICK_SWITCHER = 'qs';
 const QUICK_SWITCHER_PP = 'qs++';
 const ANOTHER_QUICK_SWITCHER = 'aqs';
 const MOVE_FILE_DIALOG = 'mfd';
+type OnOpenMethod = (this: SuggestModal<unknown>) => Promise<void> | void;
+type SetInstructionsMethod = (this: SuggestModal<unknown>, instructions: Instruction[]) => void;
+
+interface InternalSuggestModalPrototype {
+	onOpen: OnOpenMethod;
+	setInstructions: SetInstructionsMethod;
+}
 
 /**
  * Intercepts suggestion dialogs like quick switchers and "Move file" dialogs to add custom icons.
  */
 export default class SuggestionDialogIconManager extends IconManager {
-	private onOpenOriginal: typeof SuggestModal.prototype.onOpen;
-	private onOpenProxy: typeof SuggestModal.prototype.onOpen;
-	private setInstructionsOriginal: typeof SuggestModal.prototype.setInstructions;
-	private setInstructionsProxy: typeof SuggestModal.prototype.setInstructions;
+	private onOpenOriginal: OnOpenMethod;
+	private onOpenProxy: OnOpenMethod;
+	private setInstructionsOriginal: SetInstructionsMethod;
+	private setInstructionsProxy: SetInstructionsMethod;
+	private readonly wrappedModals = new WeakSet<SuggestModal<unknown>>();
 
 	constructor(plugin: IconicPlugin) {
 		super(plugin);
 
 		// Store original methods
-		this.onOpenOriginal = Reflect.get(SuggestModal.prototype, 'onOpen') as typeof SuggestModal.prototype.onOpen;
-		this.setInstructionsOriginal = Reflect.get(SuggestModal.prototype, 'setInstructions') as typeof SuggestModal.prototype.setInstructions;
+		const prototype = SuggestModal.prototype as unknown as InternalSuggestModalPrototype;
+		this.onOpenOriginal = prototype.onOpen;
+		this.setInstructionsOriginal = prototype.setInstructions;
 
 		// Catch Quick Switcher, Quick Switcher++, and "Move file" dialogs
-		this.onOpenProxy = new Proxy(this.onOpenOriginal, {
-			apply: (onOpen, modal) => {
-				if (this.isDisabled()) {
-					return onOpen.call(modal);
-				}
-
-				const modalType = this.getModalType(modal);
-				if (!modalType) {
-					return onOpen.call(modal);
-				}
-
-				// Proxy renderSuggestion() for each instance
-				modal.renderSuggestion = new Proxy(modal.renderSuggestion, {
-					apply: (renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) => {
-						// Call base method first to pre-populate elements
-						const returnValue = renderSuggestion.call(modal, ...args);
-
-						switch (modalType) {
-							case QUICK_SWITCHER: {
-								modal.modalEl.addClass('iconic-prompt');
-								this.refreshSuggestionIconQS(...args);
-								break;
-							}
-							case QUICK_SWITCHER_PP: {
-								modal.modalEl.addClass('iconic-prompt');
-								this.refreshSuggestionIconQSPP(...args);
-								break;
-							}
-							case MOVE_FILE_DIALOG: {
-								modal.modalEl.addClass('iconic-prompt');
-								this.refreshSuggestionIconMFD(...args);
-								break;
-							}
-						}
-
-						return returnValue;
-					}
-				});
-
-				return onOpen.call(modal);
+		const isDisabled = (): boolean => this.isDisabled();
+		const getModalType = (modal: SuggestModal<unknown>): string | null => this.getModalType(modal);
+		const wrapRenderSuggestion = (modal: SuggestModal<unknown>, modalType: string): void => this.wrapRenderSuggestion(modal, modalType);
+		const onOpenOriginal = this.onOpenOriginal;
+		this.onOpenProxy = function(this: SuggestModal<unknown>): void {
+			if (!isDisabled()) {
+				const modalType = getModalType(this);
+				if (modalType) wrapRenderSuggestion(this, modalType);
 			}
-		});
+			void onOpenOriginal.call(this);
+		};
 
 		// Catch Another Quick Switcher, which never call super.onOpen()
-		this.setInstructionsProxy = new Proxy(this.setInstructionsOriginal, {
-			apply: (setInstructions, modal: SuggestModal<any>, args: [Instruction[]]) => {
-				if (this.isDisabled()) {
-					return setInstructions.call(modal, ...args);
-				}
-
-				const modalType = this.getModalType(modal);
-				if (modalType !== ANOTHER_QUICK_SWITCHER) {
-					return setInstructions.call(modal, ...args);
-				}
-
-				// Proxy renderSuggestion() for every instance
-				modal.renderSuggestion = new Proxy(modal.renderSuggestion, {
-					apply: (renderSuggestion, modal: SuggestModal<any>, args: [any, HTMLElement]) => {
-						if (this.isDisabled()) {
-							return renderSuggestion.call(modal, ...args);
-						}
-						// Call base method first to pre-populate elements
-						const returnValue = renderSuggestion.call(modal, ...args);
-						modal.modalEl.addClass('iconic-another-quick-switcher');
-						// Refresh suggestions
-						this.refreshSuggestionIconAQS(...args);
-						return returnValue;
-					}
-				});
-
-				return setInstructions.call(modal, ...args);
+		const setInstructionsOriginal = this.setInstructionsOriginal;
+		this.setInstructionsProxy = function(this: SuggestModal<unknown>, instructions: Instruction[]): void {
+			if (!isDisabled() && getModalType(this) === ANOTHER_QUICK_SWITCHER) {
+				wrapRenderSuggestion(this, ANOTHER_QUICK_SWITCHER);
 			}
-		});
+			setInstructionsOriginal.call(this, instructions);
+		};
 
 		// Replace original methods
-		SuggestModal.prototype.onOpen = this.onOpenProxy;
-		SuggestModal.prototype.setInstructions = this.setInstructionsProxy;
+		prototype.onOpen = this.onOpenProxy;
+		prototype.setInstructions = this.setInstructionsProxy;
+	}
+
+	private wrapRenderSuggestion(modal: SuggestModal<unknown>, modalType: string): void {
+		if (this.wrappedModals.has(modal)) return;
+		this.wrappedModals.add(modal);
+		const renderSuggestionOriginal = modal.renderSuggestion.bind(modal);
+		modal.renderSuggestion = (value, el): void => {
+			renderSuggestionOriginal(value, el);
+			if (this.isDisabled()) return;
+			switch (modalType) {
+				case QUICK_SWITCHER:
+					modal.modalEl.addClass('iconic-prompt');
+					this.refreshSuggestionIconQS(value, el);
+					break;
+				case QUICK_SWITCHER_PP:
+					modal.modalEl.addClass('iconic-prompt');
+					this.refreshSuggestionIconQSPP(value, el);
+					break;
+				case ANOTHER_QUICK_SWITCHER:
+					modal.modalEl.addClass('iconic-another-quick-switcher');
+					this.refreshSuggestionIconAQS(value, el);
+					break;
+				case MOVE_FILE_DIALOG:
+					modal.modalEl.addClass('iconic-prompt');
+					this.refreshSuggestionIconMFD(value, el);
+			}
+		};
 	}
 
 	/**
 	 * Determine which type of modal this is.
 	 */
-	private getModalType(modal: SuggestModal<any>): string | null {
+	private getModalType(modal: SuggestModal<unknown>): string | null {
 		// Check for Another Quick Switcher
 		if (modal.modalEl.hasClass('another-quick-switcher__modal-prompt')) {
 			return ANOTHER_QUICK_SWITCHER;
@@ -142,12 +152,13 @@ export default class SuggestionDialogIconManager extends IconManager {
 	/**
 	 * Refresh icon of a Quick Switcher suggestion.
 	 */
-	private refreshSuggestionIconQS(value: any, el: HTMLElement): void {
-		switch (value?.type) {
+	private refreshSuggestionIconQS(value: unknown, el: HTMLElement): void {
+		const suggestion = getSuggestionValue(value);
+		switch (suggestion?.type) {
 			case 'alias': // Fallthrough
 			case 'file': {
-				if (value.file instanceof TFile) {
-					const file = this.plugin.getFileItem(value.file.path);
+				if (suggestion.file instanceof TFile) {
+					const file = this.plugin.getFileItem(suggestion.file.path);
 					const rule = this.plugin.ruleManager?.checkRuling('file', file.id) ?? file;
 					if (rule.icon || rule.color) {
 						const iconEl = el.find('.iconic-icon') ?? el.createDiv();
@@ -158,8 +169,8 @@ export default class SuggestionDialogIconManager extends IconManager {
 				break;
 			}
 			case 'bookmark': {
-				const bmarkBase = value.item;
-				if (bmarkBase.type === 'file') {
+				const bmarkBase = getBookmarkSuggestion(suggestion.item);
+				if (bmarkBase?.type === 'file' && bmarkBase.path) {
 					const file = this.plugin.getFileItem(bmarkBase.path);
 					const rule = this.plugin.ruleManager?.checkRuling('file', file.id) ?? file;
 					if (rule.icon || rule.color) {
@@ -175,12 +186,13 @@ export default class SuggestionDialogIconManager extends IconManager {
 	/**
 	 * Refresh icon of a Quick Switcher++ suggestion.
 	 */
-	private refreshSuggestionIconQSPP(value: any, el: HTMLElement): void {
-		switch (value?.type) {
+	private refreshSuggestionIconQSPP(value: unknown, el: HTMLElement): void {
+		const suggestion = getSuggestionValue(value);
+		switch (suggestion?.type) {
 			case 'relatedItemsList': // Fallthrough
 			case 'file': {
-				if (value.file instanceof TFile) {
-					const file = this.plugin.getFileItem(value.file.path);
+				if (suggestion.file instanceof TFile) {
+					const file = this.plugin.getFileItem(suggestion.file.path);
 					const rule = this.plugin.ruleManager?.checkRuling('file', file.id) ?? file;
 					if (rule.icon || rule.color) {
 						const iconEl = el.find('.iconic-icon') ?? el.createDiv();
@@ -191,8 +203,8 @@ export default class SuggestionDialogIconManager extends IconManager {
 				break;
 			}
 			case 'bookmark': {
-				const bmarkBase = value.item;
-				if (bmarkBase.type === 'file' || bmarkBase.type === 'folder') {
+				const bmarkBase = getBookmarkSuggestion(suggestion.item);
+				if ((bmarkBase?.type === 'file' || bmarkBase?.type === 'folder') && bmarkBase.path) {
 					const file = this.plugin.getFileItem(bmarkBase.path);
 					const rule = this.plugin.ruleManager?.checkRuling(bmarkBase.type, file.id) ?? file;
 					if (rule.icon || rule.color) {
@@ -204,13 +216,13 @@ export default class SuggestionDialogIconManager extends IconManager {
 				break;
 			}
 			case 'editorList': { // Represents an open tab in Editor Mode
-				if (!(value.item instanceof WorkspaceLeaf)) break;
-				const tabType = value.item.view.getViewType();
-				const iconDefault = value.item.view.getIcon();
+				if (!(suggestion.item instanceof WorkspaceLeaf)) break;
+				const tabType = suggestion.item.view.getViewType();
+				const iconDefault = suggestion.item.view.getIcon();
 
 				// Distinguish between file tabs and plugin tabs
-				if (!PLUGIN_TAB_TYPES.includes(tabType) && value.file instanceof TFile) {
-					const file = this.plugin.getFileItem(value.file.path);
+				if (!PLUGIN_TAB_TYPES.includes(tabType) && suggestion.file instanceof TFile) {
+					const file = this.plugin.getFileItem(suggestion.file.path);
 					const rule = this.plugin.ruleManager?.checkRuling('file', file.id) ?? file;
 					if (rule.icon || rule.color) {
 						const iconEl = el.find('.iconic-icon') ?? el.createDiv();
@@ -234,8 +246,8 @@ export default class SuggestionDialogIconManager extends IconManager {
 	/**
 	 * Refresh icon of Another Quick Switcher suggestion.
 	 */
-	private refreshSuggestionIconAQS(value: any, el: HTMLElement): void {
-		const tFile = value.file;
+	private refreshSuggestionIconAQS(value: unknown, el: HTMLElement): void {
+		const tFile = getSuggestionValue(value)?.file;
 		if (!(tFile instanceof TFile)) return;
 
 		const itemEl = el.find('.another-quick-switcher__item');
@@ -252,8 +264,8 @@ export default class SuggestionDialogIconManager extends IconManager {
 	/**
 	 * Refresh icon of a "Move file" dialog suggestion.
 	 */
-	private refreshSuggestionIconMFD(value: any, el: HTMLElement): void {
-		const tFolder = value?.item;
+	private refreshSuggestionIconMFD(value: unknown, el: HTMLElement): void {
+		const tFolder = getSuggestionValue(value)?.item;
 		if (!(tFolder instanceof TFolder)) return;
 
 		el.addClass('mod-complex');

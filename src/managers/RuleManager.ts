@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import IconicPlugin, { Category, Item, FileItem, ICONS, EMOJIS, STRINGS } from 'src/IconicPlugin.js';
+import IconicPlugin, { Category, Item, FileItem, ICONS, EMOJIS, STRINGS, RuleBase, RuleConditionBase } from 'src/IconicPlugin.js';
 
 const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -126,7 +126,7 @@ export default class RuleManager {
 	/**
 	 * Create rule definition.
 	 */
-	private defineRule(page: Category, ruleBase: any): RuleItem {
+	private defineRule(page: Category, ruleBase: RuleBase): RuleItem {
 		return {
 			id: ruleBase.id ?? '0',
 			name: ruleBase.name ?? '',
@@ -135,7 +135,11 @@ export default class RuleManager {
 			icon: ruleBase.icon ?? null,
 			color: ruleBase.color ?? null,
 			match: ruleBase.match ?? 'all',
-			conditions: ruleBase.conditions ?? [],
+			conditions: (ruleBase.conditions ?? []).map(condition => ({
+				source: condition.source ?? '',
+				operator: condition.operator ?? '',
+				value: condition.value ?? '',
+			})),
 			enabled: ruleBase.enabled ?? false,
 		}
 	}
@@ -248,7 +252,7 @@ export default class RuleManager {
 		else delete ruleBase.match;
 		if (newRule.conditions.length > 0) {
 			ruleBase.conditions = newRule.conditions.map(({ source, operator, value }) => {
-				const conditionBase: any = {};
+				const conditionBase: RuleConditionBase = {};
 				if (source) conditionBase.source = source;
 				if (operator) conditionBase.operator = operator;
 				if (value) conditionBase.value = value;
@@ -521,6 +525,7 @@ export default class RuleManager {
 					return this.updateRulings(page);
 				}
 			}
+			break;
 			default: return false;
 		}
 		return false;
@@ -583,7 +588,14 @@ export default class RuleManager {
 				if (metadata?.frontmatter) {
 					const fmProps = Object.entries(metadata.frontmatter);
 					const fmProp = fmProps.find(([fmPropId]) => fmPropId.toLowerCase() === propId.toLowerCase());
-					if (Array.isArray(fmProp)) source = fmProp[1];
+					if (fmProp) {
+						const value: unknown = fmProp[1];
+						if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+							source = value;
+						} else if (Array.isArray(value)) {
+							source = value.filter((entry): entry is string | null => typeof entry === 'string' || entry === null);
+						}
+					}
 				}
 			} else switch (condition.source) {
 				case 'icon': {
@@ -607,7 +619,12 @@ export default class RuleManager {
 				case 'embeds': source = metadata?.embeds?.map(embed => embed.link) ?? []; break;
 				case 'tags': {
 					source = [];
-					const propTags = metadata?.frontmatter?.tags ?? [];
+					const rawPropTags: unknown = metadata?.frontmatter?.tags;
+					const propTags = typeof rawPropTags === 'string'
+						? [rawPropTags]
+						: Array.isArray(rawPropTags)
+							? rawPropTags.filter((tag): tag is string => typeof tag === 'string')
+							: [];
 					const inlineTags = metadata?.tags?.map(tag => tag.tag.replace('#', '')) ?? [];
 					for (const tag of [...propTags, ...inlineTags]) {
 						if (!source.includes(tag)) source.push(tag);

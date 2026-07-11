@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- Added Android and iOS support and marked the plugin as mobile-compatible.
+- Replaced Node-only bundled-icon decompression with the web-standard `DecompressionStream` API.
+- Made custom SVG icon packs cross-platform by loading vault-relative folders through Obsidian's data adapter.
+- Kept the bundled Phosphor pack compressed while removing Node, Electron, and desktop-filesystem dependencies from mobile startup.
+- Strengthened internal suggestion and settings types while preserving existing icon behaviour.
+
 ## 1.3.1
 
 - Addressed Obsidian community review warnings for async saves, cross-window DOM checks, timer APIs, deprecated slider calls, switch fallthroughs, and CSS compatibility.

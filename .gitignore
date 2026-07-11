@@ -1,5 +1,6 @@
 node_modules/
 .npm-cache/
+.eslintcache
 *.log
 .DS_Store
 

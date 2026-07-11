@@ -1,6 +1,5 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { BUNDLED_PHOSPHOR } from 'src/BundledPhosphor.js';
+import { DataAdapter, normalizePath } from 'obsidian';
+import { loadBundledPhosphorData } from 'src/BundledPhosphor.js';
 import { getAliasTermsForIcon } from 'src/IconSearchAliases.js';
 
 export const PACK_ICON_PREFIX = 'nicons:';
@@ -26,19 +25,20 @@ export interface ScannedIconPack {
 	icons: Map<string, PackIcon>;
 }
 
-export async function scanIconPack(packPath: string, preferredVariant: string): Promise<ScannedIconPack> {
-	const rootPath = await getSvgRootPath(packPath);
-	const variantFolders = await getVariantFolders(rootPath);
+export async function scanIconPack(adapter: DataAdapter, packPath: string, preferredVariant: string): Promise<ScannedIconPack> {
+	const normalizedPackPath = normalizePath(packPath.trim().replace(/^\/+/, ''));
+	const rootPath = await getSvgRootPath(adapter, normalizedPackPath);
+	const variantFolders = await getVariantFolders(adapter, rootPath);
 	const icons = new Map<string, PackIcon>();
 
 	for (const [variant, folderPath] of variantFolders) {
-		const fileNames = await readSvgFileNames(folderPath);
-		for (const fileName of fileNames) {
-			const slug = normalizeSvgSlug(fileName, variant);
+		const filePaths = await readSvgFilePaths(adapter, folderPath);
+		for (const filePath of filePaths) {
+			const slug = normalizeSvgSlug(basename(filePath), variant);
 			if (!slug) continue;
 
 			const id = `${PACK_ICON_PREFIX}${slug}`;
-			const svg = await fs.readFile(path.join(folderPath, fileName), 'utf8');
+			const svg = await adapter.read(filePath);
 			const existing = icons.get(id);
 			if (existing) {
 				existing.variants[variant] = svg;
@@ -57,7 +57,7 @@ export async function scanIconPack(packPath: string, preferredVariant: string): 
 	}
 
 	if (icons.size === 0) {
-		throw new Error(`No SVG icons found in ${packPath}`);
+		throw new Error(`No SVG icons found in ${normalizedPackPath}`);
 	}
 
 	const variants = [...new Set([...variantFolders.keys()])].sort(compareVariants);
@@ -65,22 +65,23 @@ export async function scanIconPack(packPath: string, preferredVariant: string): 
 		? preferredVariant
 		: variants.includes('regular')
 			? 'regular'
-			: variants[0];
+				: variants[0] ?? 'regular';
 
 	return {
-		name: path.basename(packPath),
-		path: packPath,
+		name: basename(normalizedPackPath),
+		path: normalizedPackPath,
 		variants,
 		selectedVariant,
 		icons,
 	};
 }
 
-export function loadBundledPhosphor(preferredVariant: string): ScannedIconPack {
+export async function loadBundledPhosphor(preferredVariant: string): Promise<ScannedIconPack> {
+	const bundledPhosphor = await loadBundledPhosphorData();
 	const icons = new Map<string, PackIcon>();
-	const variants = Object.keys(BUNDLED_PHOSPHOR.variants).sort(compareVariants);
+	const variants = Object.keys(bundledPhosphor.variants).sort(compareVariants);
 
-	for (const [variant, svgs] of Object.entries(BUNDLED_PHOSPHOR.variants)) {
+	for (const [variant, svgs] of Object.entries(bundledPhosphor.variants)) {
 		for (const [slug, svg] of Object.entries(svgs)) {
 			const id = `${PACK_ICON_PREFIX}${slug}`;
 			const existing = icons.get(id);
@@ -104,10 +105,10 @@ export function loadBundledPhosphor(preferredVariant: string): ScannedIconPack {
 		? preferredVariant
 		: variants.includes('regular')
 			? 'regular'
-			: variants[0];
+				: variants[0] ?? 'regular';
 
 	return {
-		name: BUNDLED_PHOSPHOR.name,
+		name: bundledPhosphor.name,
 		path: 'bundled:phosphor-icons',
 		variants,
 		selectedVariant,
@@ -131,41 +132,42 @@ function compareVariants(a: string, b: string): number {
 	return a.localeCompare(b);
 }
 
-async function getSvgRootPath(packPath: string): Promise<string> {
-	const phosphorPath = path.join(packPath, SVG_FLAT_FOLDER);
-	return await exists(phosphorPath) ? phosphorPath : packPath;
+async function getSvgRootPath(adapter: DataAdapter, packPath: string): Promise<string> {
+	const phosphorPath = normalizePath(`${packPath}/${SVG_FLAT_FOLDER}`);
+	return await adapter.exists(phosphorPath) ? phosphorPath : packPath;
 }
 
-async function getVariantFolders(rootPath: string): Promise<Map<string, string>> {
-	const entries = await fs.readdir(rootPath, { withFileTypes: true });
+async function getVariantFolders(adapter: DataAdapter, rootPath: string): Promise<Map<string, string>> {
+	const listing = await adapter.list(rootPath);
 	const folders = new Map<string, string>();
 
-	for (const entry of entries) {
-		if (!entry.isDirectory()) continue;
-		const variant = entry.name.toLowerCase();
-		const folderPath = path.join(rootPath, entry.name);
-		if ((await readSvgFileNames(folderPath)).length > 0) {
+	for (const folderPath of listing.folders) {
+		const variant = basename(folderPath).toLowerCase();
+		if ((await readSvgFilePaths(adapter, folderPath)).length > 0) {
 			folders.set(variant, folderPath);
 		}
 	}
 
-	if (folders.size === 0 && (await readSvgFileNames(rootPath)).length > 0) {
+	if (folders.size === 0 && (await readSvgFilePaths(adapter, rootPath)).length > 0) {
 		folders.set('regular', rootPath);
 	}
 
 	return folders;
 }
 
-async function readSvgFileNames(folderPath: string): Promise<string[]> {
+async function readSvgFilePaths(adapter: DataAdapter, folderPath: string): Promise<string[]> {
 	try {
-		const entries = await fs.readdir(folderPath, { withFileTypes: true });
-		return entries
-			.filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.svg'))
-			.map(entry => entry.name)
+		const listing = await adapter.list(folderPath);
+		return listing.files
+			.filter(filePath => filePath.toLowerCase().endsWith('.svg'))
 			.sort((a, b) => a.localeCompare(b));
 	} catch {
 		return [];
 	}
+}
+
+function basename(filePath: string): string {
+	return filePath.split('/').filter(Boolean).pop() ?? filePath;
 }
 
 function normalizeSvgSlug(fileName: string, variant: string): string {
@@ -193,13 +195,4 @@ function makeSearchText(id: string, slug: string, name: string): string {
 		slug.replaceAll('-', ' '),
 		...getAliasTermsForIcon(slug),
 	].join(' ').toLowerCase();
-}
-
-async function exists(filePath: string): Promise<boolean> {
-	try {
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
 }

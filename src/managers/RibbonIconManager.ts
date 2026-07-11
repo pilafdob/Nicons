@@ -4,6 +4,23 @@ import MenuManager from 'src/managers/MenuManager.js';
 import IconManager from 'src/managers/IconManager.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 
+interface InternalMenuItem {
+	iconEl: HTMLElement;
+}
+interface InternalRibbonWorkspace {
+	leftRibbon: { ribbonItemsEl: HTMLElement };
+}
+interface InternalMobileApp {
+	mobileNavbar?: { ribbonMenuItemEl?: HTMLElement };
+}
+interface InternalVaultConfig {
+	getConfig(key: string): unknown;
+}
+
+function getMenuItemIconEl(item: object): HTMLElement {
+	return (item as InternalMenuItem).iconEl;
+}
+
 /**
  * Handles icons in the app ribbon.
  */
@@ -12,8 +29,8 @@ export default class RibbonIconManager extends IconManager {
 		super(plugin);
 		this.refreshIcons();
 
-		// @ts-expect-error (Private API)
-		const containerEl: HTMLElement = this.app.workspace.leftRibbon.ribbonItemsEl;
+		const workspace = this.app.workspace as unknown as InternalRibbonWorkspace;
+		const containerEl = workspace.leftRibbon.ribbonItemsEl;
 
 		// Prevent ribbon from eating auxclick events
 		this.setEventListener(containerEl, 'auxclick', event => {
@@ -30,11 +47,10 @@ export default class RibbonIconManager extends IconManager {
 			const ribbonItems = this.plugin.getRibbonItems();
 			this.plugin.menuManager?.forSection('order', item => {
 				const firstItem = ribbonItems.first();
-				// @ts-expect-error (Private API)
-				if (firstItem && item.iconEl.childElementCount > 0) { // Ribbon Divider compatibility
-					item.setIcon(firstItem.icon);
-					// @ts-expect-error (Private API)
-					this.refreshIcon(firstItem, item.iconEl);
+					const iconEl = getMenuItemIconEl(item);
+					if (firstItem && iconEl.childElementCount > 0) { // Ribbon Divider compatibility
+						item.setIcon(firstItem.icon);
+						this.refreshIcon(firstItem, iconEl);
 					ribbonItems.shift();
 				}
 			});
@@ -60,20 +76,20 @@ export default class RibbonIconManager extends IconManager {
 	 */
 	refreshIcons(unloading?: boolean): void {
 		if (Platform.isPhone) {
-			// @ts-expect-error (Private API)
-			const ribbonButtonEl = this.app.mobileNavbar.ribbonMenuItemEl;
+				const internalApp = this.app as unknown as InternalMobileApp;
+				const ribbonButtonEl = internalApp.mobileNavbar?.ribbonMenuItemEl;
 			if (!ribbonButtonEl) return;
 
-			// @ts-expect-error (Private API)
-			const quickItemId = this.app.vault.getConfig('mobileQuickRibbonItem');
+				const vault = this.app.vault as unknown as InternalVaultConfig;
+				const quickItemValue = vault.getConfig('mobileQuickRibbonItem');
+				const quickItemId = typeof quickItemValue === 'string' ? quickItemValue : null;
 			const ribbonButtonListener = () => {
 				const firstRibItem = this.plugin.getRibbonItems().filter(item => !item.isHidden);
 				this.plugin.menuManager?.forSection('', item => {
 					const ribbonItem = firstRibItem[0];
 					if (ribbonItem) {
 						item.setIcon(ribbonItem.icon);
-						// @ts-expect-error (Private API)
-						this.refreshIcon(ribbonItem, item.iconEl);
+							this.refreshIcon(ribbonItem, getMenuItemIconEl(item));
 						firstRibItem.shift();
 					}
 				});
@@ -122,12 +138,14 @@ export default class RibbonIconManager extends IconManager {
 				this.refreshConfigIcons(containerEl);
 			});
 
-			// @ts-expect-error (Private API)
-			const quickItemId = this.app.vault.getConfig('mobileQuickRibbonItem');
+				const vault = this.app.vault as unknown as InternalVaultConfig;
+				const quickItemValue = vault.getConfig('mobileQuickRibbonItem');
+				const quickItemId = typeof quickItemValue === 'string' ? quickItemValue : null;
 			if (quickItemId) {
 				const quickItem = this.plugin.getRibbonItem(quickItemId);
 				const quickIconEl = containerEl.find('.setting-item-control > .extra-setting-button');
-				this.refreshIcon(quickItem, quickIconEl, () => {
+					if (!quickIconEl) return;
+					this.refreshIcon(quickItem, quickIconEl, () => {
 					IconPicker.openSingle(this.plugin, quickItem, (newIcon, newColor) => {
 						this.plugin.saveRibbonIcon(quickItem, newIcon, newColor);
 						this.plugin.refreshManagers('ribbon');

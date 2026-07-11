@@ -1,6 +1,7 @@
 import { ButtonComponent, Modal, Setting } from 'obsidian';
 import IconicPlugin, { FileItem, STRINGS } from 'src/IconicPlugin.js';
 import PathListComponent from 'src/components/PathListComponent.js';
+import { getCommandHotkeys } from 'src/HotkeyUtils.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 
 /**
@@ -20,8 +21,7 @@ export default class UsageChecker extends Modal {
 
 		// Allow hotkeys in dialog
 		for (const command of this.plugin.dialogCommands) if (command.callback) {
-			// @ts-expect-error (Private API)
-			const hotkeys: Hotkey[] = this.app.hotkeyManager?.customKeys?.[command.id] ?? [];
+			const hotkeys = getCommandHotkeys(this.app, command.id);
 			for (const hotkey of hotkeys) {
 				this.scope.register(hotkey.modifiers, hotkey.key, command.callback);
 			}

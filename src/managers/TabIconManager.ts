@@ -4,6 +4,23 @@ import IconManager from 'src/managers/IconManager.js';
 import RuleEditor from 'src/dialogs/RuleEditor.js';
 import IconPicker from 'src/dialogs/IconPicker.js';
 
+interface InternalMenuItem {
+	iconEl: HTMLElement;
+}
+interface InternalTabSplit {
+	activeTabSelectEl: HTMLElement;
+	activeTabIconEl?: HTMLElement;
+	activeTabHeaderEl?: HTMLElement;
+}
+interface InternalTabWorkspace {
+	leftSplit: InternalTabSplit;
+	rightSplit: InternalTabSplit;
+}
+
+function getMenuItemIconEl(item: object): HTMLElement {
+	return (item as InternalMenuItem).iconEl;
+}
+
 /**
  * Handles icons in workspace tab headers.
  */
@@ -23,12 +40,10 @@ export default class TabIconManager extends IconManager {
 				if (tab.category === 'file') {
 					const rule = this.plugin.ruleManager?.checkRuling('file', tab.id) ?? tab;
 					rule.iconDefault = rule.iconDefault ?? 'lucide-file';
-					// @ts-expect-error (Private API)
-					this.refreshIcon(rule, item.iconEl);
+					this.refreshIcon(rule, getMenuItemIconEl(item));
 				} else {
 					tab.iconDefault = tab.iconDefault ?? 'lucide-file';
-					// @ts-expect-error (Private API)
-					this.refreshIcon(tab, item.iconEl);
+					this.refreshIcon(tab, getMenuItemIconEl(item));
 				}
 			});
 		});
@@ -112,32 +127,27 @@ export default class TabIconManager extends IconManager {
 
 			// Update mobile sidebars
 			if (Platform.isMobile) {
-				// @ts-expect-error (Private API)
-				this.setEventListener(this.app.workspace.leftSplit.activeTabSelectEl, 'change', () => this.refreshIcons());
-				// @ts-expect-error (Private API)
-				this.setEventListener(this.app.workspace.rightSplit.activeTabSelectEl, 'change', () => this.refreshIcons());
+				const workspace = this.app.workspace as unknown as InternalTabWorkspace;
+				this.setEventListener(workspace.leftSplit.activeTabSelectEl, 'change', () => this.refreshIcons());
+				this.setEventListener(workspace.rightSplit.activeTabSelectEl, 'change', () => this.refreshIcons());
 
-				// @ts-expect-error (Private API)
-				if (this.app.workspace.leftSplit.activeTabIconEl === iconEl) {
-					// @ts-expect-error (Private API)
-					const leftActiveTabEl = this.app.workspace.leftSplit.activeTabHeaderEl;
-					if (this.plugin.settings.showMenuActions) {
+				if (workspace.leftSplit.activeTabIconEl === iconEl) {
+					const leftActiveTabEl = workspace.leftSplit.activeTabHeaderEl;
+					if (leftActiveTabEl && this.plugin.settings.showMenuActions) {
 						this.setEventListener(leftActiveTabEl, 'contextmenu', () => {
 							this.onContextMenu(tab.id, tab.category);
 						});
 					} else {
-						this.stopEventListener(leftActiveTabEl, 'contextmenu');
+						this.stopEventListener(leftActiveTabEl ?? null, 'contextmenu');
 					}
-					// @ts-expect-error (Private API)
-				} else if (this.app.workspace.rightSplit.activeTabIconEl === iconEl) {
-					// @ts-expect-error (Private API)
-					const rightActiveTabEl = this.app.workspace.rightSplit.activeTabHeaderEl;
-					if (this.plugin.settings.showMenuActions) {
+				} else if (workspace.rightSplit.activeTabIconEl === iconEl) {
+					const rightActiveTabEl = workspace.rightSplit.activeTabHeaderEl;
+					if (rightActiveTabEl && this.plugin.settings.showMenuActions) {
 						this.setEventListener(rightActiveTabEl, 'contextmenu', () => {
 							this.onContextMenu(tab.id, tab.category);
 						});
 					} else {
-						this.stopEventListener(rightActiveTabEl, 'contextmenu');
+						this.stopEventListener(rightActiveTabEl ?? null, 'contextmenu');
 					}
 				}
 			}
