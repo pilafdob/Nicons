@@ -9,6 +9,11 @@ import { PACK_ICONS } from 'src/IconPackService.js';
 export default abstract class IconManager {
 	protected readonly app: App;
 	protected readonly plugin: IconicPlugin;
+	private readonly renderedIcons = new WeakMap<HTMLElement, {
+		id: string,
+		source: string | null,
+		child: Element,
+	}>();
 	private readonly eventListeners = new Map<keyof HTMLElementEventMap, Map<HTMLElement, {
 		listener: EventListener,
 		options?: boolean | AddEventListenerOptions,
@@ -80,11 +85,30 @@ export default abstract class IconManager {
 	}
 
 	private renderIconId(iconEl: HTMLElement, iconId: string, color: string | null): boolean {
-		if (PACK_ICONS.has(iconId)) {
-			return this.plugin.renderPackIcon(iconEl, iconId, color);
+		const source = PACK_ICONS.has(iconId) ? this.plugin.getPackIconSvg(iconId) : null;
+		const renderedIcon = this.renderedIcons.get(iconEl);
+		if (renderedIcon?.id === iconId
+			&& renderedIcon.source === source
+			&& renderedIcon.child.parentElement === iconEl
+		) {
+			return true;
 		}
-		setIcon(iconEl, iconId);
-		return true;
+
+		let didRender: boolean;
+		if (PACK_ICONS.has(iconId)) {
+			didRender = this.plugin.renderPackIcon(iconEl, iconId, color);
+		} else {
+			setIcon(iconEl, iconId);
+			didRender = true;
+		}
+
+		const child = iconEl.firstElementChild;
+		if (didRender && child) {
+			this.renderedIcons.set(iconEl, { id: iconId, source, child });
+		} else {
+			this.renderedIcons.delete(iconEl);
+		}
+		return didRender;
 	}
 
 	/**

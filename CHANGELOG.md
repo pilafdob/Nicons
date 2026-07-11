@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.1
+- Fixed Icons flickering when expanding/retracting folders. 
+
 ## 1.4.0
 
 - Added Android and iOS support and marked the plugin as mobile-compatible.

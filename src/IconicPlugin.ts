@@ -678,13 +678,13 @@ export default class IconicPlugin extends Plugin {
 		const svgEl = this.createSafeSvgElement(iconEl, svgText);
 		if (!svgEl) return false;
 
-		iconEl.empty();
-		iconEl.appendChild(svgEl);
 		if (color) {
 			svgEl.style.setProperty('color', ColorUtils.toRgb(color));
 		} else {
 			svgEl.style.removeProperty('color');
 		}
+		iconEl.empty();
+		iconEl.appendChild(svgEl);
 		return true;
 	}
 
