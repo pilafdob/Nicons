@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.3
+
+- Replaced performance-heavy `:has()` selectors with explicit state and structural selectors.
+- Fixed invalid use of a CSS custom property as a selector list while preserving RTL icon behavior.
+
 ## 1.4.2
 
 - Fixed emojis appearing blank in icon-picker search results.

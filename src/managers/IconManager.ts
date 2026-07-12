@@ -37,6 +37,7 @@ export default abstract class IconManager {
 	 */
 	protected refreshIcon(item: Item | Icon, iconEl: HTMLElement, onClick?: (event: MouseEvent) => void): void {
 		iconEl.addClass('iconic-icon');
+		iconEl.toggleClass('iconic-custom-icon', Boolean(item.icon));
 
 		if (item.icon) {
 			const color = this.plugin.getIconRenderColor(item.icon, item.color);

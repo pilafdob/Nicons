@@ -1,7 +1,7 @@
 {
   "id": "nicons",
   "name": "Nicons",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "minAppVersion": "1.11.0",
   "description": "Customize icons with bundled Phosphor icon assets.",
   "author": "pilafdob",
