@@ -220,6 +220,15 @@ a.tag {
 .is-mobile .mod-confirmation > .modal.iconic-icon-picker {
 	background-color: var(--modal-background);
 }
+body.is-phone .modal.iconic-icon-picker {
+	width: 100%;
+	max-width: 100%;
+}
+body.is-phone .modal.iconic-icon-picker > .modal-content {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
 .iconic-icon-picker .callout + .setting-item {
 	border-top: none;
 }
@@ -248,6 +257,7 @@ a.tag {
 .is-mobile .iconic-button-row {
 	display: flex;
 	flex-direction: row;
+	flex-wrap: wrap;
 	gap: var(--size-4-3);
 }
 .is-phone .iconic-button-row > button {
@@ -270,11 +280,28 @@ a.tag {
 .iconic-search-results:focus-visible {
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
-body.is-phone .iconic-search-results {
-	flex-direction: row;
+body.is-phone .modal.iconic-icon-picker .setting-item.iconic-search-results {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: calc(var(--icon-xl) * 2 + var(--size-4-8));
+	max-height: 40vh;
+	overflow-x: hidden;
+	overflow-y: auto;
 }
-body.is-phone .iconic-search-results > .setting-item-control {
-	width: auto;
+body.is-phone .modal.iconic-icon-picker .iconic-search-results > .setting-item-control {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+	align-items: center;
+	justify-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+}
+body.is-phone .modal.iconic-icon-picker .iconic-search-result {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
 }
 
 /* Search result */

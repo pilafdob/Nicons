@@ -1,7 +1,14 @@
 # Changelog
 
+## 1.4.2
+
+- Fixed emojis appearing blank in icon-picker search results.
+- Improved the phone icon picker with a responsive, touch-friendly results grid.
+- Made icon assignments persist immediately and serialized overlapping settings writes so rapid changes are not dropped.
+
 ## 1.4.1
-- Fixed Icons flickering when expanding/retracting folders. 
+
+- Fixed icons flickering when expanding or collapsing folders.
 
 ## 1.4.0
 

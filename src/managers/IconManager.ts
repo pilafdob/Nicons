@@ -40,12 +40,12 @@ export default abstract class IconManager {
 
 		if (item.icon) {
 			const color = this.plugin.getIconRenderColor(item.icon, item.color);
-			if (this.renderIconId(iconEl, item.icon, color)) {
-				// Rendered by Nicons icon pack or Obsidian icon registry.
-			} else if (EMOJIS.has(item.icon)) {
+			if (EMOJIS.has(item.icon)) {
 				iconEl.empty();
 				const emojiEl = iconEl.createDiv({ cls: 'iconic-emoji', text: item.icon });
 				if (color) IconManager.colorFilter(emojiEl, color);
+			} else {
+				this.renderIconId(iconEl, item.icon, color);
 			}
 			iconEl.show();
 		} else if (iconEl.hasClass('collapse-icon')) {

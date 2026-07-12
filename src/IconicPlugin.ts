@@ -334,7 +334,9 @@ export default class IconicPlugin extends Plugin {
 	suggestionIconManager?: SuggestionIconManager;
 	suggestionDialogIconManager?: SuggestionDialogIconManager;
 	dialogCommands: Command[] = [];
-	private isSaving = false;
+	private saveRevision = 0;
+	private savedRevision = 0;
+	private savePromise: Promise<void> | null = null;
 
 	/**
 	 * @override
@@ -1646,26 +1648,38 @@ export default class IconicPlugin extends Plugin {
 	 * Save settings to storage.
 	 */
 	async saveSettings(): Promise<void> {
-		if (this.isSaving) return;
-		this.isSaving = true;
+		this.saveRevision++;
+		this.savePromise ??= this.flushSettings();
+		await this.savePromise;
+	}
 
-		// Sort item IDs for human-readability
-		this.settings.appIcons = Object.fromEntries(Object.entries(this.settings.appIcons).sort());
-		this.settings.tabIcons = Object.fromEntries(Object.entries(this.settings.tabIcons).sort());
-		this.settings.fileIcons = Object.fromEntries(Object.entries(this.settings.fileIcons).sort());
-		this.settings.fileTypeColors = Object.fromEntries(Object.entries(this.settings.fileTypeColors).sort());
-		this.settings.iconColors = Object.fromEntries(Object.entries(this.settings.iconColors).sort());
-		this.settings.bookmarkIcons = Object.fromEntries(Object.entries(this.settings.bookmarkIcons).sort());
-		this.settings.propertyIcons = Object.fromEntries(Object.entries(this.settings.propertyIcons).sort());
-		this.settings.ribbonIcons = Object.fromEntries(Object.entries(this.settings.ribbonIcons).sort());
+	/**
+	 * Serialize settings writes and repeat the write when settings change while a
+	 * previous write is in flight. This prevents rapid icon changes from being
+	 * dropped and starts persistence immediately after the user confirms a pick.
+	 */
+	private async flushSettings(): Promise<void> {
+		try {
+			while (this.savedRevision < this.saveRevision) {
+				const revision = this.saveRevision;
 
-		// Pause before writing to storage, in case the current state cause an instant crash
-		await sleep(300);
+				// Sort item IDs for human-readability
+				this.settings.appIcons = Object.fromEntries(Object.entries(this.settings.appIcons).sort());
+				this.settings.tabIcons = Object.fromEntries(Object.entries(this.settings.tabIcons).sort());
+				this.settings.fileIcons = Object.fromEntries(Object.entries(this.settings.fileIcons).sort());
+				this.settings.fileTypeColors = Object.fromEntries(Object.entries(this.settings.fileTypeColors).sort());
+				this.settings.iconColors = Object.fromEntries(Object.entries(this.settings.iconColors).sort());
+				this.settings.bookmarkIcons = Object.fromEntries(Object.entries(this.settings.bookmarkIcons).sort());
+				this.settings.propertyIcons = Object.fromEntries(Object.entries(this.settings.propertyIcons).sort());
+				this.settings.ribbonIcons = Object.fromEntries(Object.entries(this.settings.ribbonIcons).sort());
 
-		// Save and backup settings
-		await this.saveData(this.settings);
-		void this.saveBackup();
-		this.isSaving = false;
+				await this.saveData(this.settings);
+				this.savedRevision = revision;
+			}
+			void this.saveBackup();
+		} finally {
+			this.savePromise = null;
+		}
 	}
 
 	/**
