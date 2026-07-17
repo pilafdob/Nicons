@@ -52,6 +52,4 @@ Nicons is licensed under the MIT License. It includes source derived from Iconic
 
 ## Credits
 
-Developed by the bltrsh(c) team, @pilafdob.
-
-Visit us at https://bubbletrash.com.
+Developed by Filip, @pilafdob.
