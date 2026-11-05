@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.4
+
+- Prevent custom SVG icon packs from loading external resources through SVG elements or attributes.
+- Keep internal SVG fragment references available for icon shapes, gradients, and masks.
+
 ## 1.4.3
 
 - Replaced performance-heavy `:has()` selectors with explicit state and structural selectors.

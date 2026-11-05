@@ -816,7 +816,9 @@ export default class IconicPlugin extends Plugin {
 		const svgEl = doc.documentElement;
 		if (svgEl.nodeName.toLowerCase() !== 'svg' || !svgEl.instanceOf(SVGSVGElement)) return null;
 
-		for (const element of Array.from(svgEl.querySelectorAll('script,foreignObject,iframe,object,embed,link,style'))) {
+		// Custom packs are vault files, so treat their SVG markup as untrusted.
+		// Keep shapes and local fragment references, but never load external assets.
+		for (const element of Array.from(svgEl.querySelectorAll('script,foreignObject,iframe,object,embed,link,style,image,feImage,animate,animateMotion,animateTransform,set,mpath,a'))) {
 			element.remove();
 		}
 
@@ -824,7 +826,12 @@ export default class IconicPlugin extends Plugin {
 			for (const attribute of Array.from(element.attributes)) {
 				const name = attribute.name.toLowerCase();
 				const value = attribute.value.trim().toLowerCase();
-				if (name.startsWith('on') || value.startsWith('javascript:')) {
+				const localFragment = /^#[a-z0-9_.:-]+$/i.test(value);
+				const localPaint = /^url\(\s*['"]?#[a-z0-9_.:-]+['"]?\s*\)$/i.test(value);
+				if (name.startsWith('on') || name === 'style' || name === 'src' || name === 'xml:base'
+					|| value.includes('javascript:') || value.includes('@import')
+					|| ((name === 'href' || name === 'xlink:href') && !localFragment)
+					|| (value.includes('url(') && !localPaint)) {
 					element.removeAttribute(attribute.name);
 				}
 			}
