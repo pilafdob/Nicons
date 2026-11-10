@@ -40,14 +40,14 @@ export default class FileIconManager extends IconManager {
 		if (leaf.getViewState().type !== 'file-explorer') return;
 
 		this.stopMutationObserver(this.containerEl);
-		this.containerEl = leaf.view.containerEl.find(':scope > .nav-files-container > div');
+		this.containerEl = leaf.view.containerEl.find(':scope > .nav-files-container');
 		this.setMutationsObserver(this.containerEl, {
 			subtree: true,
 			childList: true,
 			attributeFilter: ['data-path'],
 		}, mutations => {
 			for (const mutation of mutations) {
-				if (mutation.attributeName === 'data-path') {
+				if (mutation.attributeName === 'data-path' || mutation.target === this.containerEl) {
 					this.refreshIcons();
 					return;
 				} else for (const addedNode of mutation.addedNodes) {
@@ -67,7 +67,8 @@ export default class FileIconManager extends IconManager {
 	 */
 	refreshIcons(unloading?: boolean): void {
 		const files = this.plugin.getFileItems(unloading);
-		const itemEls = this.containerEl?.findAll(':scope > .tree-item');
+		// The native root wrapper can have siblings such as the Pinup Island.
+		const itemEls = this.containerEl?.findAll(':scope > div > .tree-item');
 		if (itemEls) this.refreshChildIcons(files, itemEls, unloading);
 	}
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.5
+
+- Keep File Explorer icons visible after reloading Obsidian with the Pinup Island above the file list.
+
 ## 1.4.4
 
 - Prevent custom SVG icon packs from loading external resources through SVG elements or attributes.
