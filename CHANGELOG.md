@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.6
+
+- Expose a versioned API so compatible plugins can search Nicons icons and stage file or folder icon overrides for user approval.
+
 ## 1.4.5
 
 - Keep File Explorer icons visible after reloading Obsidian with the Pinup Island above the file list.

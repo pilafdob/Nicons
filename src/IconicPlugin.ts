@@ -1,4 +1,4 @@
-import { Command, Notice, Platform, Plugin, TAbstractFile, TFile, TFolder, View, WorkspaceFloating, WorkspaceLeaf, WorkspaceRoot, getLanguage, normalizePath } from 'obsidian';
+import { Command, Events, Notice, Platform, Plugin, TAbstractFile, TFile, TFolder, View, WorkspaceFloating, WorkspaceLeaf, WorkspaceRoot, getLanguage, normalizePath } from 'obsidian';
 import IconicSettingTab from 'src/IconicSettingTab.js';
 import EMOJIS from 'src/Emojis.js';
 import STRINGS from 'src/Strings.js';
@@ -101,6 +101,10 @@ const PACK_ICON_FALLBACKS: Record<string, string> = {
 const HOUR = 1000 * 60 * 60; // 1 hour in millis
 const MINUTE = 1000 * 60; // 1 minute in millis
 const SECOND = 1000; // 1 second in millis
+
+function isInterconnectivityReply(value: unknown): value is (api: unknown) => void {
+	return typeof value === 'function';
+}
 
 /**
  * Base interface for all icon objects.
@@ -337,6 +341,12 @@ export default class IconicPlugin extends Plugin {
 	private saveRevision = 0;
 	private savedRevision = 0;
 	private savePromise: Promise<void> | null = null;
+	private readonly interconnectivityApi = {
+		version: 1 as const,
+		read: (key: string, path?: string): unknown => this.readInterconnectivityOption(key, path),
+		search: (query: string): unknown => this.searchInterconnectivityIcons(query),
+		prepare: (key: string, path: string | undefined, value: unknown): unknown => this.prepareInterconnectivityChange(key, path, value),
+	};
 
 	/**
 	 * @override
@@ -344,6 +354,11 @@ export default class IconicPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		await this.loadIconPack();
+		const workspaceEvents: Events = this.app.workspace;
+		this.registerEvent(workspaceEvents.on('pilafdob:nicons:api:v1', (...data: unknown[]) => {
+			const [reply] = data;
+			if (isInterconnectivityReply(reply)) reply(this.interconnectivityApi);
+		}));
 		this.addSettingTab(new IconicSettingTab(this));
 
 		this.app.workspace.onLayoutReady(() => {
@@ -1578,6 +1593,58 @@ export default class IconicPlugin extends Plugin {
 		} else {
 			delete settings[itemId];
 		}
+	}
+
+	private readInterconnectivityOption(key: string, path?: string): string | null {
+		if (key !== 'icon' || !path) throw new Error('Choose a file or folder icon option and an exact vault path.');
+		this.assertInterconnectivityPath(path);
+		return this.settings.fileIcons[path]?.icon ?? null;
+	}
+
+	private searchInterconnectivityIcons(query: string): { id: string; name: string }[] {
+		const normalized = query.trim().toLocaleLowerCase();
+		if (!normalized || normalized.length > 100) throw new Error('Provide an icon search term of 1 to 100 characters.');
+		return [...ICONS.entries()]
+			.filter(([id, name]) => `${id} ${name}`.toLocaleLowerCase().includes(normalized))
+			.slice(0, 12)
+			.map(([id, name]) => ({ id, name }));
+	}
+
+	private prepareInterconnectivityChange(key: string, path: string | undefined, value: unknown): {
+		before: string | null;
+		after: string | null;
+		apply: () => Promise<void>;
+	} {
+		if (key !== 'icon' || !path || value !== null && (typeof value !== 'string' || !ICONS.has(value))) {
+			throw new Error('Choose an available Nicons icon or null to reset it.');
+		}
+		const before = this.readInterconnectivityOption(key, path);
+		const after = value;
+		return {
+			before,
+			after,
+			apply: async () => {
+				if (this.readInterconnectivityOption(key, path) !== before) {
+					throw new Error('The Nicons icon changed after the proposal was prepared.');
+				}
+				await this.setInterconnectivityIcon(path, after);
+			},
+		};
+	}
+
+	private assertInterconnectivityPath(path: string): void {
+		if (path.length > 1024 || this.app.vault.getAbstractFileByPath(path)?.path !== path) {
+			throw new Error('Choose an existing file or folder in this vault.');
+		}
+	}
+
+	private async setInterconnectivityIcon(path: string, icon: string | null): Promise<void> {
+		this.assertInterconnectivityPath(path);
+		const current = this.settings.fileIcons[path];
+		this.updateIconSetting(this.settings.fileIcons, path, icon, current?.color ?? null);
+		await this.saveSettings();
+		this.ruleManager?.triggerRulings('file', 'icon');
+		this.refreshManagers('file', 'folder');
 	}
 
 	/**
